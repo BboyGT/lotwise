@@ -7,6 +7,7 @@ export interface SymbolSpec {
   id: string;
   label: string;
   tvSymbol: string;          // TradingView ticker (best-effort — TV doesn't list all Deriv synthetics)
+  derivSymbol?: string;      // Deriv API symbol for live ticks (synthetic only)
   assetClass: AssetClass;
   category: string;          // sub-category within asset class, for grouped dropdown
   minLot: number;            // broker minimum lot size
@@ -39,6 +40,7 @@ function synth(
   id: string,
   label: string,
   tvSymbol: string,
+  derivSymbol: string,
   category: string,
   minLot: number,
   note?: string
@@ -47,6 +49,7 @@ function synth(
     id,
     label,
     tvSymbol,
+    derivSymbol,
     assetClass: "synthetic",
     category,
     minLot,
@@ -201,95 +204,95 @@ export const SYMBOLS: SymbolSpec[] = [
   // ============================================================
   // SYNTHETIC — BOOM & CRASH (4)
   // ============================================================
-  synth("BOOM500", "Boom 500", "DERIV:BOOM500", "Boom & Crash", 0.2,
+  synth("BOOM500", "Boom 500", "DERIV:BOOM500", "BOOM500", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Pays on bullish spikes."),
-  synth("BOOM1000", "Boom 1000", "DERIV:BOOM1000", "Boom & Crash", 0.2,
+  synth("BOOM1000", "Boom 1000", "DERIV:BOOM1000", "BOOM1000", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Pays on bullish spikes."),
-  synth("CRASH500", "Crash 500", "DERIV:CRASH500", "Boom & Crash", 0.2,
+  synth("CRASH500", "Crash 500", "DERIV:CRASH500", "CRASH500", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Pays on bearish drops."),
-  synth("CRASH1000", "Crash 1000", "DERIV:CRASH1000", "Boom & Crash", 0.2,
+  synth("CRASH1000", "Crash 1000", "DERIV:CRASH1000", "CRASH1000", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Pays on bearish drops."),
 
   // ============================================================
   // SYNTHETIC — VOLATILITY INDICES (5)
   // ============================================================
-  synth("VOL10", "Volatility 10 Index", "DERIV:R_10", "Volatility Indices", 0.01,
+  synth("VOL10", "Volatility 10 Index", "DERIV:R_10", "R_10", "Volatility Indices", 0.01,
     "Deriv. 1 tick/pip ≈ $1/lot. 10% volatility."),
-  synth("VOL25", "Volatility 25 Index", "DERIV:R_25", "Volatility Indices", 0.01,
+  synth("VOL25", "Volatility 25 Index", "DERIV:R_25", "R_25", "Volatility Indices", 0.01,
     "Deriv. 25% volatility."),
-  synth("VOL50", "Volatility 50 Index", "DERIV:R_50", "Volatility Indices", 0.01,
+  synth("VOL50", "Volatility 50 Index", "DERIV:R_50", "R_50", "Volatility Indices", 0.01,
     "Deriv. 50% volatility."),
-  synth("VOL75", "Volatility 75 Index", "DERIV:R_75", "Volatility Indices", 0.01,
+  synth("VOL75", "Volatility 75 Index", "DERIV:R_75", "R_75", "Volatility Indices", 0.01,
     "Deriv. 75% volatility. Most popular."),
-  synth("VOL100", "Volatility 100 Index", "DERIV:R_100", "Volatility Indices", 0.01,
+  synth("VOL100", "Volatility 100 Index", "DERIV:R_100", "R_100", "Volatility Indices", 0.01,
     "Deriv. 100% volatility. Highest volatility."),
 
   // ============================================================
   // SYNTHETIC — VOLATILITY 1s INDICES (5)
   // ============================================================
-  synth("VOL10S", "Volatility 10 (1s) Index", "DERIV:R_10S", "Volatility 1s", 0.01,
+  synth("VOL10S", "Volatility 10 (1s) Index", "DERIV:1HZ10V", "1HZ10V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
-  synth("VOL25S", "Volatility 25 (1s) Index", "DERIV:R_25S", "Volatility 1s", 0.01,
+  synth("VOL25S", "Volatility 25 (1s) Index", "DERIV:1HZ25V", "1HZ25V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
-  synth("VOL50S", "Volatility 50 (1s) Index", "DERIV:R_50S", "Volatility 1s", 0.01,
+  synth("VOL50S", "Volatility 50 (1s) Index", "DERIV:1HZ50V", "1HZ50V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
-  synth("VOL75S", "Volatility 75 (1s) Index", "DERIV:R_75S", "Volatility 1s", 0.01,
+  synth("VOL75S", "Volatility 75 (1s) Index", "DERIV:1HZ75V", "1HZ75V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
-  synth("VOL100S", "Volatility 100 (1s) Index", "DERIV:R_100S", "Volatility 1s", 0.01,
+  synth("VOL100S", "Volatility 100 (1s) Index", "DERIV:1HZ100V", "1HZ100V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
 
   // ============================================================
   // SYNTHETIC — JUMP INDICES (5)
   // ============================================================
-  synth("JUMP10", "Jump 10 Index", "DERIV:JUMP10", "Jump Indices", 0.01,
+  synth("JUMP10", "Jump 10 Index", "DERIV:JD10", "JD10", "Jump Indices", 0.01,
     "Deriv. Jump index — 10% volatility with jumps."),
-  synth("JUMP25", "Jump 25 Index", "DERIV:JUMP25", "Jump Indices", 0.01,
+  synth("JUMP25", "Jump 25 Index", "DERIV:JD25", "JD25", "Jump Indices", 0.01,
     "Deriv. Jump index — 25% volatility."),
-  synth("JUMP50", "Jump 50 Index", "DERIV:JUMP50", "Jump Indices", 0.01,
+  synth("JUMP50", "Jump 50 Index", "DERIV:JD50", "JD50", "Jump Indices", 0.01,
     "Deriv. Jump index — 50% volatility."),
-  synth("JUMP75", "Jump 75 Index", "DERIV:JUMP75", "Jump Indices", 0.01,
+  synth("JUMP75", "Jump 75 Index", "DERIV:JD75", "JD75", "Jump Indices", 0.01,
     "Deriv. Jump index — 75% volatility."),
-  synth("JUMP100", "Jump 100 Index", "DERIV:JUMP100", "Jump Indices", 0.01,
+  synth("JUMP100", "Jump 100 Index", "DERIV:JD100", "JD100", "Jump Indices", 0.01,
     "Deriv. Jump index — 100% volatility."),
 
   // ============================================================
   // SYNTHETIC — STEP INDICES (9)
   // ============================================================
-  synth("STEP01", "Step Index (0.1)", "DERIV:stpidx0p1", "Step Indices", 0.1,
+  synth("STEP01", "Step Index (0.1)", "DERIV:stpidx0p1", "stpidx0p1", "Step Indices", 0.1,
     "Deriv. Step size 0.1. Uniform distribution."),
-  synth("STEP02", "Step Index (0.2)", "DERIV:stpidx0p2", "Step Indices", 0.1,
+  synth("STEP02", "Step Index (0.2)", "DERIV:stpidx0p2", "stpidx0p2", "Step Indices", 0.1,
     "Deriv. Step size 0.2."),
-  synth("STEP03", "Step Index (0.3)", "DERIV:stpidx0p3", "Step Indices", 0.1,
+  synth("STEP03", "Step Index (0.3)", "DERIV:stpidx0p3", "stpidx0p3", "Step Indices", 0.1,
     "Deriv. Step size 0.3."),
-  synth("STEP04", "Step Index (0.4)", "DERIV:stpidx0p4", "Step Indices", 0.1,
+  synth("STEP04", "Step Index (0.4)", "DERIV:stpidx0p4", "stpidx0p4", "Step Indices", 0.1,
     "Deriv. Step size 0.4."),
-  synth("STEP05", "Step Index (0.5)", "DERIV:stpidx0p5", "Step Indices", 0.1,
+  synth("STEP05", "Step Index (0.5)", "DERIV:stpidx0p5", "stpidx0p5", "Step Indices", 0.1,
     "Deriv. Step size 0.5."),
-  synth("STEP06", "Step Index (0.6)", "DERIV:stpidx0p6", "Step Indices", 0.1,
+  synth("STEP06", "Step Index (0.6)", "DERIV:stpidx0p6", "stpidx0p6", "Step Indices", 0.1,
     "Deriv. Step size 0.6."),
-  synth("STEP07", "Step Index (0.7)", "DERIV:stpidx0p7", "Step Indices", 0.1,
+  synth("STEP07", "Step Index (0.7)", "DERIV:stpidx0p7", "stpidx0p7", "Step Indices", 0.1,
     "Deriv. Step size 0.7."),
-  synth("STEP08", "Step Index (0.8)", "DERIV:stpidx0p8", "Step Indices", 0.1,
+  synth("STEP08", "Step Index (0.8)", "DERIV:stpidx0p8", "stpidx0p8", "Step Indices", 0.1,
     "Deriv. Step size 0.8."),
-  synth("STEP09", "Step Index (0.9)", "DERIV:stpidx0p9", "Step Indices", 0.1,
+  synth("STEP09", "Step Index (0.9)", "DERIV:stpidx0p9", "stpidx0p9", "Step Indices", 0.1,
     "Deriv. Step size 0.9."),
 
   // ============================================================
   // SYNTHETIC — BULL, BEAR, Z & SMART INDICES
   // ============================================================
-  synth("BULLMARKET", "Bull Market Index", "DERIV:BOV", "Bull/Bear/Smart", 0.01,
+  synth("BULLMARKET", "Bull Market Index", "DERIV:RDBULL", "RDBULL", "Bull/Bear/Smart", 0.01,
     "Deriv. Simulates bullish market behaviour."),
-  synth("BEARMARKET", "Bear Market Index", "DERIV:BEAR", "Bull/Bear/Smart", 0.01,
+  synth("BEARMARKET", "Bear Market Index", "DERIV:RDBEAR", "RDBEAR", "Bull/Bear/Smart", 0.01,
     "Deriv. Simulates bearish market behaviour."),
-  synth("ZVOL75", "Z Volatility 75 Index", "DERIV:ZVOLATILITY75", "Bull/Bear/Smart", 0.01,
+  synth("ZVOL75", "Z Volatility 75 Index", "DERIV:ZVOLATILITY75", "ZVOLATILITY75", "Bull/Bear/Smart", 0.01,
     "Deriv. Stable volatility variant."),
-  synth("SMART5R", "Smart 5R Index", "DERIV:SMART5R", "Bull/Bear/Smart", 0.01,
+  synth("SMART5R", "Smart 5R Index", "DERIV:smartidx5R", "smartidx5R", "Bull/Bear/Smart", 0.01,
     "Deriv. 5 resets per cycle."),
-  synth("SMART10R", "Smart 10R Index", "DERIV:SMART10R", "Bull/Bear/Smart", 0.01,
+  synth("SMART10R", "Smart 10R Index", "DERIV:smartidx10R", "smartidx10R", "Bull/Bear/Smart", 0.01,
     "Deriv. 10 resets per cycle."),
-  synth("SMART20R", "Smart 20R Index", "DERIV:SMART20R", "Bull/Bear/Smart", 0.01,
+  synth("SMART20R", "Smart 20R Index", "DERIV:smartidx20R", "smartidx20R", "Bull/Bear/Smart", 0.01,
     "Deriv. 20 resets per cycle."),
-  synth("SMART40R", "Smart 40R Index", "DERIV:SMART40R", "Bull/Bear/Smart", 0.01,
+  synth("SMART40R", "Smart 40R Index", "DERIV:smartidx40R", "smartidx40R", "Bull/Bear/Smart", 0.01,
     "Deriv. 40 resets per cycle."),
 
   // ============================================================
