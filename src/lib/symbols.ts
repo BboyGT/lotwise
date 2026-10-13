@@ -8,6 +8,7 @@ export interface SymbolSpec {
   label: string;
   tvSymbol: string;          // TradingView ticker (best-effort — TV doesn't list all Deriv synthetics)
   derivSymbol?: string;      // Deriv API symbol for live ticks (synthetic only)
+  binanceSymbol?: string;   // Binance API symbol (crypto only — e.g. BTCUSDT)
   assetClass: AssetClass;
   category: string;          // sub-category within asset class, for grouped dropdown
   minLot: number;            // broker minimum lot size
@@ -119,6 +120,7 @@ function crypto(
   id: string,
   label: string,
   tvSymbol: string,
+  binanceSymbol: string,
   category: string,
   pipSize: number,
   pipValuePerLot: number,
@@ -129,6 +131,7 @@ function crypto(
     id,
     label,
     tvSymbol,
+    binanceSymbol,
     assetClass: "crypto",
     category,
     minLot: 0.01,
@@ -337,65 +340,65 @@ export const SYMBOLS: SymbolSpec[] = [
   // ============================================================
   // CRYPTO — MAJOR (8)
   // ============================================================
-  crypto("BTCUSD", "BTC/USD", "BINANCE:BTCUSDT", "Major", 1, 1, 2,
+  crypto("BTCUSD", "BTC/USD", "BINANCE:BTCUSDT", "BTCUSDT", "Major", 1, 1, 2,
     "Bitcoin. $1 per $1 move per 1 coin (1 lot = 1 BTC)."),
-  crypto("ETHUSD", "ETH/USD", "BINANCE:ETHUSDT", "Major", 0.1, 0.1, 2,
+  crypto("ETHUSD", "ETH/USD", "BINANCE:ETHUSDT", "ETHUSDT", "Major", 0.1, 0.1, 2,
     "Ethereum. 1 lot = 1 ETH."),
-  crypto("XRPUSD", "XRP/USD", "BINANCE:XRPUSDT", "Major", 0.0001, 0.0001, 4,
+  crypto("XRPUSD", "XRP/USD", "BINANCE:XRPUSDT", "XRPUSDT", "Major", 0.0001, 0.0001, 4,
     "Ripple. 1 lot = 1 XRP."),
-  crypto("SOLUSD", "SOL/USD", "BINANCE:SOLUSDT", "Major", 0.01, 0.01, 3,
+  crypto("SOLUSD", "SOL/USD", "BINANCE:SOLUSDT", "SOLUSDT", "Major", 0.01, 0.01, 3,
     "Solana. 1 lot = 1 SOL."),
-  crypto("ADAUSD", "ADA/USD", "BINANCE:ADAUSDT", "Major", 0.0001, 0.0001, 4,
+  crypto("ADAUSD", "ADA/USD", "BINANCE:ADAUSDT", "ADAUSDT", "Major", 0.0001, 0.0001, 4,
     "Cardano. 1 lot = 1 ADA."),
-  crypto("DOTUSD", "DOT/USD", "BINANCE:DOTUSDT", "Major", 0.01, 0.01, 3,
+  crypto("DOTUSD", "DOT/USD", "BINANCE:DOTUSDT", "DOTUSDT", "Major", 0.01, 0.01, 3,
     "Polkadot. 1 lot = 1 DOT."),
-  crypto("LTCUSD", "LTC/USD", "BINANCE:LTCUSDT", "Major", 0.01, 0.01, 2,
+  crypto("LTCUSD", "LTC/USD", "BINANCE:LTCUSDT", "LTCUSDT", "Major", 0.01, 0.01, 2,
     "Litecoin. 1 lot = 1 LTC."),
-  crypto("BCHUSD", "BCH/USD", "BINANCE:BCHUSDT", "Major", 0.01, 0.01, 2,
+  crypto("BCHUSD", "BCH/USD", "BINANCE:BCHUSDT", "BCHUSDT", "Major", 0.01, 0.01, 2,
     "Bitcoin Cash. 1 lot = 1 BCH."),
 
   // ============================================================
   // CRYPTO — LAYER 1 & 2 (10)
   // ============================================================
-  crypto("AVAXUSD", "AVAX/USD", "BINANCE:AVAXUSDT", "Layer 1 & 2", 0.01, 0.01, 3,
+  crypto("AVAXUSD", "AVAX/USD", "BINANCE:AVAXUSDT", "AVAXUSDT", "Layer 1 & 2", 0.01, 0.01, 3,
     "Avalanche. 1 lot = 1 AVAX."),
-  crypto("ATOMUSD", "ATOM/USD", "BINANCE:ATOMUSDT", "Layer 1 & 2", 0.001, 0.001, 3,
+  crypto("ATOMUSD", "ATOM/USD", "BINANCE:ATOMUSDT", "ATOMUSDT", "Layer 1 & 2", 0.001, 0.001, 3,
     "Cosmos. 1 lot = 1 ATOM."),
-  crypto("NEARUSD", "NEAR/USD", "BINANCE:NEARUSDT", "Layer 1 & 2", 0.01, 0.01, 3,
+  crypto("NEARUSD", "NEAR/USD", "BINANCE:NEARUSDT", "NEARUSDT", "Layer 1 & 2", 0.01, 0.01, 3,
     "NEAR Protocol. 1 lot = 1 NEAR."),
-  crypto("ARBUSD", "ARB/USD", "BINANCE:ARBUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
+  crypto("ARBUSD", "ARB/USD", "BINANCE:ARBUSDT", "ARBUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
     "Arbitrum. 1 lot = 1 ARB."),
-  crypto("OPUSD", "OP/USD", "BINANCE:OPUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
+  crypto("OPUSD", "OP/USD", "BINANCE:OPUSDT", "OPUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
     "Optimism. 1 lot = 1 OP."),
-  crypto("APTUSD", "APT/USD", "BINANCE:APTUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
+  crypto("APTUSD", "APT/USD", "BINANCE:APTUSDT", "APTUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
     "Aptos. 1 lot = 1 APT."),
-  crypto("MATICUSD", "MATIC/USD (POL)", "BINANCE:POLUSDT", "Layer 1 & 2", 0.0001, 0.0001, 4,
+  crypto("MATICUSD", "MATIC/USD (POL)", "BINANCE:POLUSDT", "POLUSDT", "Layer 1 & 2", 0.0001, 0.0001, 4,
     "Polygon (now POL). 1 lot = 1 POL."),
-  crypto("FILUSD", "FIL/USD", "BINANCE:FILUSDT", "Layer 1 & 2", 0.01, 0.01, 3,
+  crypto("FILUSD", "FIL/USD", "BINANCE:FILUSDT", "FILUSDT", "Layer 1 & 2", 0.01, 0.01, 3,
     "Filecoin. 1 lot = 1 FIL."),
-  crypto("INJUSD", "INJ/USD", "BINANCE:INJUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
+  crypto("INJUSD", "INJ/USD", "BINANCE:INJUSDT", "INJUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
     "Injective. 1 lot = 1 INJ."),
-  crypto("SUIUSD", "SUI/USD", "BINANCE:SUIUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
+  crypto("SUIUSD", "SUI/USD", "BINANCE:SUIUSDT", "SUIUSDT", "Layer 1 & 2", 0.001, 0.001, 4,
     "Sui. 1 lot = 1 SUI."),
 
   // ============================================================
   // CRYPTO — DEFI & OTHERS (8)
   // ============================================================
-  crypto("LINKUSD", "LINK/USD", "BINANCE:LINKUSDT", "DeFi & Oracles", 0.01, 0.01, 3,
+  crypto("LINKUSD", "LINK/USD", "BINANCE:LINKUSDT", "LINKUSDT", "DeFi & Oracles", 0.01, 0.01, 3,
     "Chainlink. 1 lot = 1 LINK."),
-  crypto("UNIUSD", "UNI/USD", "BINANCE:UNIUSDT", "DeFi & Oracles", 0.01, 0.01, 3,
+  crypto("UNIUSD", "UNI/USD", "BINANCE:UNIUSDT", "UNIUSDT", "DeFi & Oracles", 0.01, 0.01, 3,
     "Uniswap. 1 lot = 1 UNI."),
-  crypto("AAVEUSD", "AAVE/USD", "BINANCE:AAVEUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
+  crypto("AAVEUSD", "AAVE/USD", "BINANCE:AAVEUSDT", "AAVEUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
     "Aave. 1 lot = 1 AAVE."),
-  crypto("MKRUSD", "MKR/USD", "BINANCE:MKRUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
+  crypto("MKRUSD", "MKR/USD", "BINANCE:MKRUSDT", "MKRUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
     "Maker. 1 lot = 1 MKR."),
-  crypto("RUNEUSD", "RUNE/USD", "BINANCE:RUNEUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
+  crypto("RUNEUSD", "RUNE/USD", "BINANCE:RUNEUSDT", "RUNEUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
     "THORChain. 1 lot = 1 RUNE."),
-  crypto("TIAUSD", "TIA/USD", "BINANCE:TIAUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
+  crypto("TIAUSD", "TIA/USD", "BINANCE:TIAUSDT", "TIAUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
     "Celestia. 1 lot = 1 TIA."),
-  crypto("SEIUSD", "SEI/USD", "BINANCE:SEIUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
+  crypto("SEIUSD", "SEI/USD", "BINANCE:SEIUSDT", "SEIUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
     "Sei. 1 lot = 1 SEI."),
-  crypto("BNBUSD", "BNB/USD", "BINANCE:BNBUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
+  crypto("BNBUSD", "BNB/USD", "BINANCE:BNBUSDT", "BNBUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
     "BNB. 1 lot = 1 BNB."),
 ];
 

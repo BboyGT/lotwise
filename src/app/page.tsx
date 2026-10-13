@@ -18,7 +18,10 @@ import {
   formatPrice,
   FX_RATES,
 } from "@/lib/calculator";
-import { useDerivTicks } from "@/hooks/use-deriv-ticks";
+import { useLivePrice } from "@/hooks/use-live-price";
+import { useAlarmManager } from "@/hooks/use-alarm-manager";
+import { usePWA } from "@/hooks/use-pwa";
+import { primeAudioContext } from "@/lib/sound-engine";
 import {
   Card,
   CardContent,
@@ -61,10 +64,15 @@ import {
   ArrowDown,
   TrendingUp,
   TrendingDown,
+  Bell,
+  BellRing,
+  Download,
+  Smartphone,
 } from "lucide-react";
 import { TradingViewWidget, TradingViewTicker } from "@/components/tradingview-widget";
 import { SearchableSymbolPicker } from "@/components/searchable-symbol-picker";
 import { LotwiseLogo } from "@/components/lotwise-logo";
+import { AlarmPanel } from "@/components/alarm-panel";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -169,9 +177,31 @@ export default function Home() {
     }
   }
 
-  // Live Deriv ticks for synthetic symbols (undefined for others → no-op)
-  const derivTicks = useDerivTicks(symbol.derivSymbol);
-  const hasLiveFeed = !!symbol.derivSymbol;
+  // Live price source — Deriv WS for synthetics, Binance REST for crypto
+  const livePriceSource = symbol.derivSymbol || symbol.binanceSymbol
+    ? {
+        derivSymbol: symbol.derivSymbol,
+        binanceSymbol: symbol.binanceSymbol,
+        decimals: symbol.decimals,
+      }
+    : null;
+  const livePrice = useLivePrice(livePriceSource);
+  const hasLiveFeed = !!livePriceSource;
+  // Alias for backward-compat with rest of file
+  const derivTicks = {
+    price: livePrice.price,
+    prevPrice: livePrice.prevPrice,
+    direction: livePrice.direction,
+    isLoading: livePrice.isLoading,
+    error: livePrice.error,
+    connected: livePrice.connected,
+    // Map new "source" field to old "usingFallback" boolean for existing code
+    usingFallback:
+      livePrice.source === "simulator" || livePrice.source === "none",
+  };
+
+  // ----- PWA install prompt -----
+  const pwa = usePWA();
 
   const calc = useMemo(
     () =>
@@ -185,6 +215,18 @@ export default function Home() {
       }),
     [symbol, balance, riskPercent, entry, stopLoss, takeProfit]
   );
+
+  // ----- Alarm / Notification state -----
+  const [alarmPanelOpen, setAlarmPanelOpen] = useState(false);
+  const tradeLevelsForAlarm = useMemo(() => {
+    if (!calc.valid) return null;
+    return {
+      symbolId: symbol.id,
+      entry: parseFloat(entry) || undefined,
+      stopLoss: parseFloat(stopLoss) || undefined,
+      takeProfit: parseFloat(takeProfit) || undefined,
+    };
+  }, [calc.valid, symbol.id, entry, stopLoss, takeProfit]);
 
   const fxRate = FX_RATES[displayCurrency] ?? 1;
 
@@ -307,21 +349,53 @@ export default function Home() {
 
       {/* ===== Header ===== */}
       <header className="border-b border-white/5 bg-black/60 backdrop-blur-md sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <LotwiseLogo size={36} className="drop-shadow-[0_0_8px_rgba(255,184,0,0.4)]" />
-            <div>
-              <h1 className="text-base font-bold tracking-tight text-white leading-none">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <LotwiseLogo size={32} className="drop-shadow-[0_0_8px_rgba(255,184,0,0.4)] shrink-0 sm:hidden" />
+            <LotwiseLogo size={36} className="drop-shadow-[0_0_8px_rgba(255,184,0,0.4)] shrink-0 hidden sm:block" />
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-bold tracking-tight text-white leading-none">
                 Lot<span className="text-amber-400">wise</span>
               </h1>
-              <p className="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-mono mt-0.5">
+              <p className="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-mono mt-0.5 hidden sm:block">
                 Position Terminal
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {/* System status */}
-            <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/5 border border-white/5">
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            {/* PWA install button */}
+            {pwa.canInstall && !pwa.isInstalled && (
+              <button
+                onClick={() => pwa.promptInstall()}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 transition-colors"
+                title="Install app"
+                aria-label="Install app"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="text-[10px] font-mono uppercase tracking-wider hidden sm:inline">
+                  Install
+                </span>
+              </button>
+            )}
+
+            {/* Alarm bell button */}
+            <button
+              onClick={() => {
+                primeAudioContext();
+                setAlarmPanelOpen(true);
+              }}
+              className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/5 hover:bg-white/10 transition-colors"
+              title="Alarms & notifications"
+              aria-label="Alarms & notifications"
+            >
+              <BellRing className="h-3.5 w-3.5 text-amber-400" />
+              <span className="text-[10px] font-mono uppercase tracking-wider hidden sm:inline text-slate-300">
+                Alerts
+              </span>
+            </button>
+
+            {/* System status — compact on mobile */}
+            <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/5 border border-white/5">
               <span
                 className={`rm-pulse-dot ${
                   hasLiveFeed
@@ -338,7 +412,11 @@ export default function Home() {
                 {hasLiveFeed
                   ? derivTicks.connected
                     ? derivTicks.usingFallback
-                      ? "Deriv WS · SIM"
+                      ? livePrice.source === "binance-rest"
+                        ? "Binance · Live"
+                        : "Deriv WS · SIM"
+                      : livePrice.source === "binance-rest"
+                      ? "Binance · Live"
                       : "Deriv WS · Live"
                     : "Connecting…"
                   : "TV Chart Mode"}
@@ -369,7 +447,7 @@ export default function Home() {
       </header>
 
       {/* ===== Main ===== */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 space-y-5">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
         {/* Asset class tabs */}
         <Tabs
           value={assetClass}
@@ -380,7 +458,7 @@ export default function Home() {
               <TabsTrigger
                 key={ac.id}
                 value={ac.id}
-                className="py-2.5 data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-300 data-[state=active]:shadow-none data-[state=active]:border data-[state=active]:border-amber-500/20 border border-transparent font-mono text-xs uppercase tracking-wider"
+                className="py-2 sm:py-2.5 data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-300 data-[state=active]:shadow-none data-[state=active]:border data-[state=active]:border-amber-500/20 border border-transparent font-mono text-[10px] sm:text-xs uppercase tracking-wider"
               >
                 {ac.label}
               </TabsTrigger>
@@ -389,7 +467,7 @@ export default function Home() {
         </Tabs>
 
         {/* Top row: Symbol picker + Live price */}
-        <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_1fr]">
           <Card className="rm-glass border-white/5">
             <CardHeader className="pb-2 pt-3">
               <CardTitle className="text-xs font-mono uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -424,9 +502,15 @@ export default function Home() {
                 </span>
                 <span className="text-[9px] text-slate-600 font-mono">
                   {hasLiveFeed
-                    ? derivTicks.usingFallback
-                      ? "DERIV · SIM"
-                      : "DERIV · WS"
+                    ? livePrice.source === "deriv-ws"
+                      ? "DERIV · WS"
+                      : livePrice.source === "binance-rest"
+                      ? "BINANCE · REST"
+                      : livePrice.source === "simulator"
+                      ? symbol.derivSymbol
+                        ? "DERIV · SIM"
+                        : "BINANCE · SIM"
+                      : "TRADINGVIEW"
                     : "TRADINGVIEW"}
                 </span>
               </CardTitle>
@@ -436,7 +520,7 @@ export default function Home() {
                 <div className="space-y-2">
                   <div className="flex items-end gap-3">
                     <span
-                      className={`text-4xl font-bold font-mono tabular-nums tracking-tight ${
+                      className={`text-3xl sm:text-4xl font-bold font-mono tabular-nums tracking-tight ${
                         derivTicks.direction === "up"
                           ? "text-emerald-400 rm-flash-up"
                           : derivTicks.direction === "down"
@@ -462,12 +546,16 @@ export default function Home() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-                    <span>Symbol: <span className="text-slate-300">{symbol.derivSymbol}</span></span>
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+                    <span>Source: <span className="text-slate-300">{symbol.derivSymbol || symbol.binanceSymbol || "—"}</span></span>
                     <span>·</span>
                     <span>
-                      {derivTicks.usingFallback
-                        ? "Simulated"
+                      {livePrice.source === "simulator"
+                        ? "Simulated (WS unreachable in sandbox)"
+                        : livePrice.source === "binance-rest"
+                        ? "Live · Binance REST"
+                        : livePrice.source === "deriv-ws"
+                        ? "Live · Deriv WS"
                         : derivTicks.isLoading
                         ? "Subscribing…"
                         : derivTicks.error
@@ -498,14 +586,14 @@ export default function Home() {
           <CardContent className="p-0">
             <TradingViewWidget
               symbol={symbol.tvSymbol}
-              height={300}
+              height={280}
               type="mini"
             />
           </CardContent>
         </Card>
 
         {/* Inputs row */}
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
           {/* Account & Risk */}
           <Card className="rm-glass border-white/5">
             <CardHeader className="pb-2 pt-3">
@@ -762,7 +850,7 @@ export default function Home() {
                   <p className="text-[10px] uppercase tracking-[0.4em] text-amber-400/70 font-mono mb-2">
                     Recommended Lot Size
                   </p>
-                  <p className="text-7xl sm:text-8xl font-bold text-amber-400 rm-glow-gold font-mono tabular-nums leading-none">
+                  <p className="text-6xl sm:text-7xl lg:text-8xl font-bold text-amber-400 rm-glow-gold font-mono tabular-nums leading-none">
                     {formatLot(calc.recommendedLot)}
                   </p>
                   <div className="flex items-center justify-center gap-3 mt-3 text-[10px] font-mono uppercase tracking-wider text-slate-500">
@@ -1101,6 +1189,18 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* ===== Alarm Panel ===== */}
+      <AlarmPanel
+        open={alarmPanelOpen}
+        onClose={() => setAlarmPanelOpen(false)}
+        currentSymbolId={symbol.id}
+        currentSymbolLabel={symbol.label}
+        currentSymbolAssetClass={symbol.assetClass}
+        currentPrice={livePrice.price}
+        currentSymbolDecimals={symbol.decimals}
+        tradeLevels={tradeLevelsForAlarm}
+      />
     </div>
   );
 }

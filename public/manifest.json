@@ -1,0 +1,51 @@
+{
+  "name": "Lotwise — Position Calculator",
+  "short_name": "Lotwise",
+  "description": "Calculate exact lot size, risk, and reward for forex, synthetic indices, real indices, and crypto trades.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050608",
+  "theme_color": "#0a0f1a",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Synthetic indices",
+      "short_name": "Synthetic",
+      "url": "/?tab=synthetic",
+      "description": "Boom, Crash, Volatility, Jump indices"
+    },
+    {
+      "name": "Forex pairs",
+      "short_name": "Forex",
+      "url": "/?tab=forex",
+      "description": "Major, cross, exotic FX pairs"
+    },
+    {
+      "name": "Crypto",
+      "short_name": "Crypto",
+      "url": "/?tab=crypto",
+      "description": "BTC, ETH, altcoins"
+    }
+  ]
+}
