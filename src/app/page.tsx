@@ -64,6 +64,7 @@ import {
 } from "lucide-react";
 import { TradingViewWidget, TradingViewTicker } from "@/components/tradingview-widget";
 import { SearchableSymbolPicker } from "@/components/searchable-symbol-picker";
+import { PipForgeLogo } from "@/components/pipforge-logo";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -85,8 +86,10 @@ interface TradeRecord {
   rrRatio: number;
 }
 
-const HISTORY_KEY = "riskmate.history.v1";
-const SETTINGS_KEY = "riskmate.settings.v1";
+const HISTORY_KEY = "pipforge.history.v1";
+const LEGACY_HISTORY_KEY = "riskmate.history.v1";
+const SETTINGS_KEY = "pipforge.settings.v1";
+const LEGACY_SETTINGS_KEY = "riskmate.settings.v1";
 
 export default function Home() {
   // ----- settings -----
@@ -111,14 +114,17 @@ export default function Home() {
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     try {
-      const saved = localStorage.getItem(SETTINGS_KEY);
+      // Migrate from legacy "riskmate" keys if new "pipforge" keys don't exist
+      let saved = localStorage.getItem(SETTINGS_KEY);
+      if (!saved) saved = localStorage.getItem(LEGACY_SETTINGS_KEY);
       if (saved) {
         const obj = JSON.parse(saved);
         if (obj.displayCurrency) setDisplayCurrency(obj.displayCurrency);
         if (obj.balance) setBalance(obj.balance);
         if (obj.riskPercent) setRiskPercent(obj.riskPercent);
       }
-      const hist = localStorage.getItem(HISTORY_KEY);
+      let hist = localStorage.getItem(HISTORY_KEY);
+      if (!hist) hist = localStorage.getItem(LEGACY_HISTORY_KEY);
       if (hist) setHistory(JSON.parse(hist));
     } catch {
       // ignore malformed storage
@@ -293,15 +299,10 @@ export default function Home() {
       <header className="border-b border-white/5 bg-black/60 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-md bg-gradient-to-br from-amber-400/90 via-amber-500 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/20 border border-amber-300/20">
-              <Zap className="h-4 w-4 text-black" strokeWidth={2.5} />
-            </div>
+            <PipForgeLogo size={36} className="drop-shadow-[0_0_8px_rgba(255,184,0,0.4)]" />
             <div>
               <h1 className="text-base font-bold tracking-tight text-white leading-none">
-                RISK<span className="text-amber-400">MATE</span>
-                <span className="ml-2 text-[9px] uppercase tracking-[0.3em] text-slate-500 font-mono align-middle">
-                  v2.0
-                </span>
+                Pip<span className="text-amber-400">Forge</span>
               </h1>
               <p className="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-mono mt-0.5">
                 Position Terminal
@@ -504,32 +505,79 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-2">
+              {/* Balance input with steppers + presets */}
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
-                  Balance (USD)
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 font-mono text-sm">$</span>
-                  <Input
-                    type="number"
-                    value={balance}
-                    min={0}
-                    step={10}
-                    onChange={(e) => setBalance(parseFloat(e.target.value) || 0)}
-                    className="pl-7 bg-black/40 border-white/10 text-white font-mono tabular-nums focus-visible:border-amber-500/40"
-                  />
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                    Balance (USD)
+                  </Label>
+                  <span className="text-[10px] font-mono text-slate-600">
+                    ≈ {formatMoney(conv(balance), displayCurrency)}
+                  </span>
                 </div>
-                <p className="text-[10px] text-slate-500 font-mono">
-                  ≈ {formatMoney(conv(balance), displayCurrency)}
-                </p>
+                <div className="flex items-stretch gap-1">
+                  {/* Minus stepper */}
+                  <button
+                    type="button"
+                    onClick={() => setBalance((b) => Math.max(0, b - 10))}
+                    className="rm-stepper shrink-0 w-9 rounded-md border border-white/10 bg-black/40 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 font-mono text-base flex items-center justify-center transition-colors"
+                    aria-label="Decrease balance by 10"
+                  >
+                    −
+                  </button>
+                  {/* Main input with $ prefix */}
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 font-mono text-sm pointer-events-none">$</span>
+                    <Input
+                      type="number"
+                      value={balance}
+                      min={0}
+                      step={10}
+                      onChange={(e) => setBalance(parseFloat(e.target.value) || 0)}
+                      className="pl-7 bg-black/40 border-white/10 text-white font-mono tabular-nums text-lg focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20 h-10"
+                    />
+                  </div>
+                  {/* Plus stepper */}
+                  <button
+                    type="button"
+                    onClick={() => setBalance((b) => b + 10)}
+                    className="rm-stepper shrink-0 w-9 rounded-md border border-white/10 bg-black/40 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 font-mono text-base flex items-center justify-center transition-colors"
+                    aria-label="Increase balance by 10"
+                  >
+                    +
+                  </button>
+                </div>
+                {/* Quick presets */}
+                <div className="grid grid-cols-4 gap-1 pt-0.5">
+                  {[
+                    { label: "50", value: 50 },
+                    { label: "100", value: 100 },
+                    { label: "500", value: 500 },
+                    { label: "1K", value: 1000 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => setBalance(preset.value)}
+                      className={`h-6 rounded text-[10px] font-mono uppercase tracking-wider transition-colors ${
+                        balance === preset.value
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          : "bg-black/40 text-slate-500 border border-white/5 hover:bg-white/5 hover:text-slate-300"
+                      }`}
+                    >
+                      ${preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="space-y-1.5">
+              {/* Risk per trade slider */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
                     Risk per trade
                   </Label>
-                  <span className="text-sm font-mono font-semibold text-amber-400 tabular-nums">
+                  <span className="text-lg font-mono font-bold text-amber-400 tabular-nums">
                     {riskPercent}%
                   </span>
                 </div>
@@ -539,19 +587,48 @@ export default function Home() {
                   max={20}
                   step={0.5}
                   onValueChange={(v) => setRiskPercent(v[0])}
-                  className="[&_[role=slider]]:bg-amber-400 [&_[role=slider]]:border-amber-300 [&_[role=slider]]:shadow-amber-400/40"
                 />
-                <Input
-                  type="number"
-                  value={riskPercent}
-                  min={0}
-                  step={0.5}
-                  onChange={(e) => setRiskPercent(parseFloat(e.target.value) || 0)}
-                  className="bg-black/40 border-white/10 text-white font-mono tabular-nums focus-visible:border-amber-500/40"
-                />
-                <div className="flex items-center justify-between text-[10px] font-mono pt-1">
+                {/* Tick labels under slider */}
+                <div className="flex justify-between text-[9px] font-mono text-slate-600 -mt-1">
+                  <span>0.5%</span>
+                  <span>5%</span>
+                  <span>10%</span>
+                  <span>15%</span>
+                  <span>20%</span>
+                </div>
+                {/* Fine input + presets */}
+                <div className="flex gap-1">
+                  <Input
+                    type="number"
+                    value={riskPercent}
+                    min={0}
+                    step={0.5}
+                    onChange={(e) => setRiskPercent(parseFloat(e.target.value) || 0)}
+                    className="bg-black/40 border-white/10 text-white font-mono tabular-nums text-sm focus-visible:border-amber-500/40 h-8 w-20"
+                  />
+                  {[
+                    { label: "1%", value: 1 },
+                    { label: "2%", value: 2 },
+                    { label: "5%", value: 5 },
+                    { label: "10%", value: 10 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => setRiskPercent(preset.value)}
+                      className={`flex-1 h-8 rounded text-[10px] font-mono uppercase tracking-wider transition-colors ${
+                        riskPercent === preset.value
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          : "bg-black/40 text-slate-500 border border-white/5 hover:bg-white/5 hover:text-slate-300"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-white/5 mt-2 pt-2">
                   <span className="text-slate-500 uppercase tracking-wider">At risk:</span>
-                  <span className="font-semibold text-rose-400 tabular-nums">
+                  <span className="font-semibold text-rose-400 tabular-nums text-sm">
                     {formatMoney(conv((balance * riskPercent) / 100), displayCurrency)}
                   </span>
                 </div>
@@ -959,7 +1036,10 @@ export default function Home() {
       <footer className="border-t border-white/5 bg-black/60 mt-auto">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-slate-600">
-            <span>RISKMATE · POSITION TERMINAL · v2.0</span>
+            <span className="flex items-center gap-2">
+              <PipForgeLogo size={14} withSpark={false} />
+              PIPFORGE · POSITION TERMINAL
+            </span>
             <span className="flex items-center gap-3">
               <span>SYNTHETIC FEED · DERIV WS</span>
               <span className="text-slate-700">·</span>

@@ -39,13 +39,30 @@ function Slider({
       <SliderPrimitive.Track
         data-slot="slider-track"
         className={cn(
-          "bg-muted relative grow overflow-hidden rounded-full data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5"
+          "relative grow overflow-hidden rounded-full",
+          "data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:w-full",
+          "data-[orientation=vertical]:h-full data-[orientation=vertical]:w-2",
+          "bg-black/60 border border-white/10",
+          "shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]"
         )}
       >
+        {/* Tick marks on the track for visual texture */}
+        <div className="absolute inset-0 flex items-center justify-between px-1 opacity-40 pointer-events-none">
+          {Array.from({ length: 21 }).map((_, i) => (
+            <div
+              key={i}
+              className="w-px bg-white/20"
+              style={{ height: i % 5 === 0 ? "60%" : "30%" }}
+            />
+          ))}
+        </div>
         <SliderPrimitive.Range
           data-slot="slider-range"
           className={cn(
-            "bg-primary absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
+            "absolute rounded-full",
+            "data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full",
+            "bg-gradient-to-r from-amber-600 via-amber-400 to-amber-300",
+            "shadow-[0_0_8px_rgba(255,184,0,0.5)]"
           )}
         />
       </SliderPrimitive.Track>
@@ -53,7 +70,23 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
-          className="border-primary bg-background ring-ring/50 block size-4 shrink-0 rounded-full border shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
+          className={cn(
+            "relative block shrink-0 rounded-full",
+            "size-5 cursor-grab active:cursor-grabbing",
+            "bg-gradient-to-b from-amber-300 to-amber-500",
+            "border-2 border-amber-200/80",
+            "shadow-[0_0_0_4px_rgba(255,184,0,0.15),0_0_12px_rgba(255,184,0,0.6)]",
+            "transition-[box-shadow,transform] duration-150",
+            "hover:shadow-[0_0_0_6px_rgba(255,184,0,0.2),0_0_16px_rgba(255,184,0,0.8)]",
+            "hover:scale-110",
+            "focus-visible:outline-none focus-visible:shadow-[0_0_0_6px_rgba(255,184,0,0.3),0_0_16px_rgba(255,184,0,0.9)]",
+            "active:scale-95",
+            "disabled:pointer-events-none disabled:opacity-50",
+            // Inner dot for "forge spark" feel
+            "after:absolute after:top-1/2 after:left-1/2 after:-translate-x-1/2 after:-translate-y-1/2",
+            "after:h-1.5 after:w-1.5 after:rounded-full after:bg-amber-100",
+            "after:shadow-[0_0_4px_rgba(255,255,255,0.8)]"
+          )}
         />
       ))}
     </SliderPrimitive.Root>

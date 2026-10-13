@@ -14,32 +14,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RiskMate — Trading Position Calculator",
+  title: "PipForge — Trading Position Calculator",
   description:
-    "Calculate exact lot size, risk, and reward for forex, synthetic indices, real indices, and crypto trades. Live prices via TradingView.",
+    "Calculate exact lot size, risk, and reward for forex, synthetic indices, real indices, and crypto trades. Live prices via Deriv WebSocket + TradingView.",
   keywords: [
     "trading calculator",
     "forex lot size",
     "position sizing",
     "risk management",
+    "Boom 300",
     "Boom 500",
     "Crash 1000",
-    "EURUSD",
+    "Volatility 75",
+    "Deriv",
     "crypto calculator",
   ],
-  authors: [{ name: "RiskMate" }],
+  authors: [{ name: "PipForge" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
   },
   openGraph: {
-    title: "RiskMate — Trading Position Calculator",
+    title: "PipForge — Trading Position Calculator",
     description:
       "Calculate exact lot size, risk, and reward for forex, indices, crypto trades.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "RiskMate — Trading Position Calculator",
+    title: "PipForge — Trading Position Calculator",
     description:
       "Calculate exact lot size, risk, and reward for forex, indices, crypto trades.",
   },
@@ -52,6 +54,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >

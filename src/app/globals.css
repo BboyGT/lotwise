@@ -280,3 +280,18 @@
   font-weight: 600;
   letter-spacing: 0.04em;
 }
+
+/* Stepper button active state */
+.rm-stepper:active {
+  transform: scale(0.95);
+}
+
+/* Remove number input spinner arrows (we use custom steppers) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
