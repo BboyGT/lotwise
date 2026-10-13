@@ -64,7 +64,7 @@ import {
 } from "lucide-react";
 import { TradingViewWidget, TradingViewTicker } from "@/components/tradingview-widget";
 import { SearchableSymbolPicker } from "@/components/searchable-symbol-picker";
-import { PipForgeLogo } from "@/components/pipforge-logo";
+import { LotwiseLogo } from "@/components/lotwise-logo";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -86,10 +86,10 @@ interface TradeRecord {
   rrRatio: number;
 }
 
-const HISTORY_KEY = "pipforge.history.v1";
-const LEGACY_HISTORY_KEY = "riskmate.history.v1";
-const SETTINGS_KEY = "pipforge.settings.v1";
-const LEGACY_SETTINGS_KEY = "riskmate.settings.v1";
+const HISTORY_KEY = "lotwise.history.v1";
+const LEGACY_HISTORY_KEYS = ["pipforge.history.v1", "riskmate.history.v1"];
+const SETTINGS_KEY = "lotwise.settings.v1";
+const LEGACY_SETTINGS_KEYS = ["pipforge.settings.v1", "riskmate.settings.v1"];
 
 export default function Home() {
   // ----- settings -----
@@ -114,9 +114,14 @@ export default function Home() {
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     try {
-      // Migrate from legacy "riskmate" keys if new "pipforge" keys don't exist
+      // Migrate from legacy keys if new keys don't exist
       let saved = localStorage.getItem(SETTINGS_KEY);
-      if (!saved) saved = localStorage.getItem(LEGACY_SETTINGS_KEY);
+      if (!saved) {
+        for (const k of LEGACY_SETTINGS_KEYS) {
+          saved = localStorage.getItem(k);
+          if (saved) break;
+        }
+      }
       if (saved) {
         const obj = JSON.parse(saved);
         if (obj.displayCurrency) setDisplayCurrency(obj.displayCurrency);
@@ -124,7 +129,12 @@ export default function Home() {
         if (obj.riskPercent) setRiskPercent(obj.riskPercent);
       }
       let hist = localStorage.getItem(HISTORY_KEY);
-      if (!hist) hist = localStorage.getItem(LEGACY_HISTORY_KEY);
+      if (!hist) {
+        for (const k of LEGACY_HISTORY_KEYS) {
+          hist = localStorage.getItem(k);
+          if (hist) break;
+        }
+      }
       if (hist) setHistory(JSON.parse(hist));
     } catch {
       // ignore malformed storage
@@ -299,10 +309,10 @@ export default function Home() {
       <header className="border-b border-white/5 bg-black/60 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <PipForgeLogo size={36} className="drop-shadow-[0_0_8px_rgba(255,184,0,0.4)]" />
+            <LotwiseLogo size={36} className="drop-shadow-[0_0_8px_rgba(255,184,0,0.4)]" />
             <div>
               <h1 className="text-base font-bold tracking-tight text-white leading-none">
-                Pip<span className="text-amber-400">Forge</span>
+                Lot<span className="text-amber-400">wise</span>
               </h1>
               <p className="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-mono mt-0.5">
                 Position Terminal
@@ -892,46 +902,87 @@ export default function Home() {
 
                 {/* Min lot warning */}
                 {calc.minLotWarning && (
-                  <Alert className="bg-rose-500/5 border-rose-500/30 text-rose-200">
-                    <AlertTitle className="text-rose-300 font-mono uppercase tracking-wider text-xs flex items-center gap-2">
-                      ⚠ Below Broker Minimum Lot
-                    </AlertTitle>
-                    <AlertDescription className="space-y-2">
-                      <p className="text-xs font-mono text-slate-300">
-                        Calculated lot (<span className="text-rose-300 font-bold">{formatLot(calc.recommendedLot)}</span>) is below broker minimum of <span className="text-amber-300 font-bold">{calc.minLotWarning.minLot}</span> for {symbol.label}.
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/[0.06] overflow-hidden">
+                    {/* Header bar */}
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 border-b border-rose-500/20">
+                      <span className="rm-pulse-dot bg-rose-400" style={{ width: 6, height: 6 }} />
+                      <span className="text-xs font-mono uppercase tracking-wider text-rose-300 font-semibold">
+                        Below Broker Minimum Lot
+                      </span>
+                    </div>
+
+                    <div className="p-4 space-y-3">
+                      {/* Explanation */}
+                      <p className="text-xs font-mono text-slate-300 leading-relaxed">
+                        Calculated lot <span className="text-rose-300 font-bold">{formatLot(calc.recommendedLot)}</span>
+                        {" "}is below broker minimum of{" "}
+                        <span className="text-amber-300 font-bold">{calc.minLotWarning.minLot}</span>{" "}
+                        for {symbol.label}.
                       </p>
+
+                      {/* Divider */}
+                      <div className="border-t border-white/5" />
+
+                      {/* Sub-header */}
                       <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-                        If you trade the min lot:
+                        If you trade the minimum lot:
                       </p>
-                      <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-black/40 rounded-md p-3 border border-white/5">
-                        <div>
-                          <p className="text-slate-500 text-[10px] uppercase tracking-wider">Loss @ min</p>
-                          <p className="text-rose-300 font-bold tabular-nums">
+
+                      {/* Vertical metric list — each on its own row to prevent overlap */}
+                      <div className="space-y-2 font-mono text-xs">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">
+                            Loss at min lot
+                          </span>
+                          <span className="text-rose-300 font-bold tabular-nums text-right">
                             {formatMoney(conv(calc.minLotWarning.lossAtMinLot), displayCurrency)}
-                          </p>
+                          </span>
                         </div>
-                        <div>
-                          <p className="text-slate-500 text-[10px] uppercase tracking-wider">Win @ min</p>
-                          <p className="text-emerald-300 font-bold tabular-nums">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">
+                            Win at min lot
+                          </span>
+                          <span className="text-emerald-300 font-bold tabular-nums text-right">
                             {formatMoney(conv(calc.minLotWarning.profitAtMinLot), displayCurrency)}
-                          </p>
+                          </span>
                         </div>
-                        <div>
-                          <p className="text-slate-500 text-[10px] uppercase tracking-wider">Excess risk</p>
-                          <p className="text-rose-300 font-bold tabular-nums">
-                            {formatMoney(conv(calc.minLotWarning.excessRisk), displayCurrency)}
-                            <span className="text-slate-500 font-normal ml-1">(+{calc.minLotWarning.excessRiskPercent.toFixed(2)}%)</span>
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500 text-[10px] uppercase tracking-wider">Options</p>
-                          <p className="text-slate-300 text-[11px] leading-tight">
-                            Widen SL · ↑ Balance · Accept higher risk
-                          </p>
+                        <div className="flex items-center justify-between gap-3 border-t border-white/5 pt-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[10px] shrink-0">
+                            Excess risk
+                          </span>
+                          <span className="text-right">
+                            <span className="text-rose-300 font-bold tabular-nums block">
+                              {formatMoney(conv(calc.minLotWarning.excessRisk), displayCurrency)}
+                            </span>
+                            <span className="text-slate-500 text-[10px]">
+                              (+{calc.minLotWarning.excessRiskPercent.toFixed(2)}% over budget)
+                            </span>
+                          </span>
                         </div>
                       </div>
-                    </AlertDescription>
-                  </Alert>
+
+                      {/* Divider */}
+                      <div className="border-t border-white/5" />
+
+                      {/* Options */}
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+                          Adjust to fit broker minimum:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono bg-black/40 border border-white/5 text-slate-300">
+                            <span className="text-amber-400">→</span> Widen SL distance
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono bg-black/40 border border-white/5 text-slate-300">
+                            <span className="text-amber-400">→</span> Increase balance
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono bg-black/40 border border-white/5 text-slate-300">
+                            <span className="text-amber-400">→</span> Accept higher risk
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {/* Save */}
@@ -1037,8 +1088,8 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-slate-600">
             <span className="flex items-center gap-2">
-              <PipForgeLogo size={14} withSpark={false} />
-              PIPFORGE · POSITION TERMINAL
+              <LotwiseLogo size={14} />
+              LOTWISE · POSITION TERMINAL
             </span>
             <span className="flex items-center gap-3">
               <span>SYNTHETIC FEED · DERIV WS</span>

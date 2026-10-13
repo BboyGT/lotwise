@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PipForge — Trading Position Calculator",
+  title: "Lotwise — Trading Position Calculator",
   description:
     "Calculate exact lot size, risk, and reward for forex, synthetic indices, real indices, and crypto trades. Live prices via Deriv WebSocket + TradingView.",
   keywords: [
@@ -29,19 +29,19 @@ export const metadata: Metadata = {
     "Deriv",
     "crypto calculator",
   ],
-  authors: [{ name: "PipForge" }],
+  authors: [{ name: "Lotwise" }],
   icons: {
     icon: "/logo.svg",
   },
   openGraph: {
-    title: "PipForge — Trading Position Calculator",
+    title: "Lotwise — Trading Position Calculator",
     description:
       "Calculate exact lot size, risk, and reward for forex, indices, crypto trades.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PipForge — Trading Position Calculator",
+    title: "Lotwise — Trading Position Calculator",
     description:
       "Calculate exact lot size, risk, and reward for forex, indices, crypto trades.",
   },
