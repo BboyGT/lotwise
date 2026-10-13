@@ -23,8 +23,10 @@ interface UseDerivTicksResult {
 // around them so the UI still demonstrates live behaviour.
 const FALLBACK_BASE: Record<string, number> = {
   // Boom / Crash
+  BOOM300N: 8500,
   BOOM500: 9000,
   BOOM1000: 9500,
+  CRASH300N: 8500,
   CRASH500: 9000,
   CRASH1000: 9500,
   // Volatility

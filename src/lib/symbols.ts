@@ -202,16 +202,20 @@ export const SYMBOLS: SymbolSpec[] = [
   forex("USDDKK", "USD/DKK", "FX:USDDKK", "Exotics", 14.6, 5),
 
   // ============================================================
-  // SYNTHETIC — BOOM & CRASH (4)
+  // SYNTHETIC — BOOM & CRASH (6)
   // ============================================================
+  synth("BOOM300", "Boom 300", "DERIV:BOOM300N", "BOOM300N", "Boom & Crash", 0.2,
+    "Deriv. Min lot 0.20. Avg 1 bullish spike per 300 ticks (most frequent)."),
   synth("BOOM500", "Boom 500", "DERIV:BOOM500", "BOOM500", "Boom & Crash", 0.2,
-    "Deriv. Min lot 0.20. Pays on bullish spikes."),
+    "Deriv. Min lot 0.20. Avg 1 bullish spike per 500 ticks."),
   synth("BOOM1000", "Boom 1000", "DERIV:BOOM1000", "BOOM1000", "Boom & Crash", 0.2,
-    "Deriv. Min lot 0.20. Pays on bullish spikes."),
+    "Deriv. Min lot 0.20. Avg 1 bullish spike per 1000 ticks."),
+  synth("CRASH300", "Crash 300", "DERIV:CRASH300N", "CRASH300N", "Boom & Crash", 0.2,
+    "Deriv. Min lot 0.20. Avg 1 bearish drop per 300 ticks (most frequent)."),
   synth("CRASH500", "Crash 500", "DERIV:CRASH500", "CRASH500", "Boom & Crash", 0.2,
-    "Deriv. Min lot 0.20. Pays on bearish drops."),
+    "Deriv. Min lot 0.20. Avg 1 bearish drop per 500 ticks."),
   synth("CRASH1000", "Crash 1000", "DERIV:CRASH1000", "CRASH1000", "Boom & Crash", 0.2,
-    "Deriv. Min lot 0.20. Pays on bearish drops."),
+    "Deriv. Min lot 0.20. Avg 1 bearish drop per 1000 ticks."),
 
   // ============================================================
   // SYNTHETIC — VOLATILITY INDICES (5)

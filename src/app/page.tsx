@@ -32,9 +32,7 @@ import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -65,6 +63,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { TradingViewWidget, TradingViewTicker } from "@/components/tradingview-widget";
+import { SearchableSymbolPicker } from "@/components/searchable-symbol-picker";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -386,39 +385,16 @@ export default function Home() {
                 <CircleDot className="h-3 w-3 text-amber-400" />
                 Symbol
               </CardTitle>
+              <CardDescription className="text-[10px] font-mono uppercase tracking-wider text-slate-600 mt-1">
+                Type to search · {symbolList.length} pairs
+              </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
-              <Select value={symbolId} onValueChange={setSymbolId}>
-                <SelectTrigger className="bg-black/40 border-white/10 font-mono">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-80 rm-scroll">
-                  {groupedSymbols.map((group) => (
-                    <SelectGroup key={group.category}>
-                      <SelectLabel className="text-[10px] text-amber-400/80 uppercase tracking-[0.2em] font-mono">
-                        {group.category}
-                      </SelectLabel>
-                      {group.symbols.map((s) => (
-                        <SelectItem
-                          key={s.id}
-                          value={s.id}
-                          className="font-mono text-sm"
-                        >
-                          {s.label}
-                          {s.derivSymbol && (
-                            <Badge
-                              variant="secondary"
-                              className="ml-2 bg-emerald-500/10 text-emerald-400 text-[9px] font-mono px-1 py-0"
-                            >
-                              LIVE
-                            </Badge>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSymbolPicker
+                assetClass={assetClass}
+                value={symbolId}
+                onChange={setSymbolId}
+              />
               {symbol.note && (
                 <p className="text-[10px] text-slate-500 font-mono mt-2 leading-relaxed">
                   {symbol.note}
