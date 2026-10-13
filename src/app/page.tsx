@@ -8,6 +8,7 @@ import {
   SymbolSpec,
   getSymbol,
   symbolsByClass,
+  groupedSymbolsByClass,
 } from "@/lib/symbols";
 import {
   calculateTrade,
@@ -137,6 +138,7 @@ export default function Home() {
 
   const symbol = useMemo(() => getSymbol(symbolId), [symbolId]);
   const symbolList = useMemo(() => symbolsByClass(assetClass), [assetClass]);
+  const groupedSymbols = useMemo(() => groupedSymbolsByClass(assetClass), [assetClass]);
 
   function changeAssetClass(next: AssetClass) {
     const first = symbolsByClass(next)[0];
@@ -168,7 +170,20 @@ export default function Home() {
   const unitLabel = symbol.assetClass === "forex" ? "pips" : "points";
 
   const tickerSymbols = useMemo(
-    () => ["FX:EURUSD", "TVC:US30", "BINANCE:BTCUSDT", "DERIV:BOOM500"],
+    () => [
+      "FX:EURUSD",
+      "FX:GBPUSD",
+      "FX:USDJPY",
+      "TVC:US30",
+      "TVC:NAS100",
+      "TVC:VIX",
+      "BINANCE:BTCUSDT",
+      "BINANCE:ETHUSDT",
+      "BINANCE:SOLUSDT",
+      "DERIV:BOOM500",
+      "DERIV:CRASH1000",
+      "DERIV:R_75",
+    ],
     []
   );
 
@@ -305,17 +320,19 @@ export default function Home() {
                 <SelectTrigger className="bg-white/5 border-white/10">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>
-                      {ASSET_CLASSES.find((a) => a.id === assetClass)?.label}
-                    </SelectLabel>
-                    {symbolList.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+                <SelectContent className="max-h-80">
+                  {groupedSymbols.map((group) => (
+                    <SelectGroup key={group.category}>
+                      <SelectLabel className="text-xs text-emerald-400/80 uppercase tracking-wide">
+                        {group.category}
+                      </SelectLabel>
+                      {group.symbols.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
