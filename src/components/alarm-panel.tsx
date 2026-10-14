@@ -109,9 +109,39 @@ export function AlarmPanel({
     manager.requestNotificationPermission();
   }
 
-  function handleTestSound(type: "entry" | "stopLoss" | "takeProfit" | "custom") {
+  async function handleTestSound(type: "entry" | "stopLoss" | "takeProfit" | "custom") {
     primeAudioContext();
-    testSound(type);
+    await testSound(type);
+
+    // Also fire a real notification so the user can preview what an actual
+    // alarm will look like when a price level is hit.
+    if (
+      typeof Notification !== "undefined" &&
+      Notification.permission === "granted"
+    ) {
+      const icon = type === "takeProfit" ? "📈" : type === "stopLoss" ? "🛑" : type === "entry" ? "🎯" : "🔔";
+      const title =
+        type === "entry" ? "Entry level reached" :
+        type === "stopLoss" ? "Stop loss triggered" :
+        type === "takeProfit" ? "Take profit hit" :
+        "Price alert triggered";
+      const body =
+        type === "entry"
+          ? `BTC/USD reached your entry price — ready to enter`
+          : type === "stopLoss"
+          ? `BTC/USD hit your stop loss — position closed at a loss`
+          : type === "takeProfit"
+          ? `BTC/USD hit your take profit — position closed in profit`
+          : `BTC/USD crossed your alert price`;
+      try {
+        new Notification(`${icon} Lotwise — ${title}`, {
+          body,
+          tag: `preview-${type}-${Date.now()}`,
+        });
+      } catch {
+        // some browsers block notifications without interaction
+      }
+    }
   }
 
   const activeAlerts = manager.alerts.filter((a) => a.status === "active");
@@ -640,7 +670,7 @@ function ToggleRow({
             onClick={onTest}
             className="text-[10px] font-mono uppercase tracking-wider text-slate-500 hover:text-amber-300 transition-colors"
           >
-            Test
+            Preview
           </button>
         )}
         <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} />

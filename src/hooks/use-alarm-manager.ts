@@ -204,7 +204,7 @@ export function useAlarmManager(
       const hit = Math.abs(currentPrice - levels.entry) <= tolerance;
       if (hit && !firedTradeLevelsRef.current.has(k) && s.notifyEntry) {
         const price = currentPrice;
-        setTimeout(() => emitEvent("entry", `Price hit entry: ${price}`, price), 0);
+        setTimeout(() => emitEvent("entry", `Entry level reached at ${price}`, price), 0);
         firedTradeLevelsRef.current.add(k);
       }
     }
@@ -216,7 +216,7 @@ export function useAlarmManager(
       const hit = Math.abs(currentPrice - levels.stopLoss) <= tolerance;
       if (hit && !firedTradeLevelsRef.current.has(k) && s.notifySL) {
         const price = currentPrice;
-        setTimeout(() => emitEvent("stopLoss", `Price hit stop loss: ${price}`, price), 0);
+        setTimeout(() => emitEvent("stopLoss", `Stop loss triggered at ${price}`, price), 0);
         firedTradeLevelsRef.current.add(k);
       }
     }
@@ -228,7 +228,7 @@ export function useAlarmManager(
       const hit = Math.abs(currentPrice - levels.takeProfit) <= tolerance;
       if (hit && !firedTradeLevelsRef.current.has(k) && s.notifyTP) {
         const price = currentPrice;
-        setTimeout(() => emitEvent("takeProfit", `Price hit take profit: ${price}`, price), 0);
+        setTimeout(() => emitEvent("takeProfit", `Take profit reached at ${price}`, price), 0);
         firedTradeLevelsRef.current.add(k);
       }
     }

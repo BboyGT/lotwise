@@ -119,7 +119,7 @@ export default function Home() {
 
   // ----- history -----
   const [history, setHistory] = useState<TradeRecord[]>([]);
-  const [historyOpen, setHistoryOpen] = useState<boolean>(false);
+  const [historyOpen, setHistoryOpen] = useState<boolean>(true);
 
   // ----- hydrated flag for localStorage load -----
   const [hydrated, setHydrated] = useState(false);
@@ -873,14 +873,21 @@ export default function Home() {
             {!calc.valid ? (
               <Alert className="bg-amber-500/5 border-amber-500/20 text-amber-200">
                 <AlertTitle className="text-amber-300 font-mono uppercase tracking-wider text-xs">
-                  Awaiting Input
+                  Awaiting Trade Setup
                 </AlertTitle>
-                <AlertDescription>
-                  <ul className="list-disc ml-4 mt-1 text-xs font-mono space-y-0.5 text-slate-400">
-                    {calc.errors.map((e, i) => (
-                      <li key={i}>{e}</li>
-                    ))}
-                  </ul>
+                <AlertDescription className="space-y-2">
+                  <p className="text-xs font-mono text-slate-400">
+                    Fill in Entry, Stop Loss, and Take Profit to calculate your
+                    position size, risk, and reward. The journal note + save
+                    button appear here once the calc is valid.
+                  </p>
+                  {calc.errors.length > 0 && (
+                    <ul className="list-disc ml-4 text-xs font-mono space-y-0.5 text-slate-400">
+                      {calc.errors.map((e, i) => (
+                        <li key={i}>{e}</li>
+                      ))}
+                    </ul>
+                  )}
                 </AlertDescription>
               </Alert>
             ) : (
@@ -1171,9 +1178,17 @@ export default function Home() {
             <CollapsibleContent>
               <CardContent className="space-y-4">
                 {history.length === 0 ? (
-                  <p className="text-xs font-mono text-slate-600 text-center py-6 uppercase tracking-wider">
-                    No saved trades yet
-                  </p>
+                  <div className="space-y-3 py-4">
+                    <p className="text-xs font-mono text-slate-600 text-center uppercase tracking-wider">
+                      No saved trades yet
+                    </p>
+                    <p className="text-[10px] font-mono text-slate-700 text-center leading-relaxed">
+                      Fill in Entry, Stop Loss, and Take Profit above.<br/>
+                      Add an optional journal note, then click<br/>
+                      <span className="text-amber-500">Save to History</span> to track trades<br/>
+                      and see your equity curve here.
+                    </p>
+                  </div>
                 ) : (
                   <>
                     {/* Equity Curve */}
