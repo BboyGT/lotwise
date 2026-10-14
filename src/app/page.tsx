@@ -75,6 +75,7 @@ import { LotwiseLogo } from "@/components/lotwise-logo";
 import { AlarmPanel } from "@/components/alarm-panel";
 import { LegalModal } from "@/components/legal-modal";
 import { EquityCurveChart } from "@/components/equity-curve-chart";
+import { SyntheticSparkline } from "@/components/synthetic-sparkline";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -619,14 +620,31 @@ export default function Home() {
           </Card>
         </div>
 
-        {/* Live chart */}
+        {/* Live chart — TradingView for forex/indices/crypto, custom sparkline for synthetic */}
         <Card className="overflow-hidden rm-glass border-white/5">
           <CardContent className="p-0">
-            <TradingViewWidget
-              symbol={symbol.tvSymbol}
-              height={280}
-              type="mini"
-            />
+            {symbol.assetClass === "synthetic" ? (
+              <SyntheticSparkline
+                price={livePrice.price}
+                connected={livePrice.connected}
+                source={
+                  livePrice.source === "deriv-ws"
+                    ? "Deriv WS"
+                    : livePrice.source === "simulator"
+                    ? "Deriv SIM"
+                    : "Deriv"
+                }
+                symbolLabel={symbol.label}
+                decimals={symbol.decimals}
+                height={280}
+              />
+            ) : (
+              <TradingViewWidget
+                symbol={symbol.tvSymbol}
+                height={280}
+                type="mini"
+              />
+            )}
           </CardContent>
         </Card>
 
