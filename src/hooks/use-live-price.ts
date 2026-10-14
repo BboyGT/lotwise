@@ -117,6 +117,39 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     let settled = false; // once we get any source working, don't fall back
 
     // ---------------------------------------------------------------
+    // Simulator fallback (defined at outer scope so both Binance and
+    // Deriv paths can use it).
+    // ---------------------------------------------------------------
+    const startSimulator = (
+      src: PriceSource,
+      reason?: string
+    ) => {
+      if (cancelled || settled) return;
+      settled = true;
+      setCurrentSource("simulator");
+      setConnected(true);
+      setIsLoading(false);
+      setError(null);
+
+      const base = FALLBACK_BASE[src.derivSymbol!] ?? 1000;
+      latestPriceRef.current = base;
+      setPrice(base);
+
+      simTimerRef.current = setInterval(() => {
+        if (cancelled) return;
+        const prev = latestPriceRef.current ?? base;
+        const drift = (base - prev) * 0.05;
+        const shock = prev * (Math.random() - 0.5) * 0.002;
+        const next = prev + drift + shock;
+        setPrevPrice(prev);
+        setPrice(next);
+        setDirection(next > prev ? "up" : "down");
+        latestPriceRef.current = next;
+      }, 1500);
+      void reason;
+    };
+
+    // ---------------------------------------------------------------
     // Path A: Binance REST polling for crypto
     // ---------------------------------------------------------------
     if (source.binanceSymbol && !source.derivSymbol) {
@@ -142,8 +175,9 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
             setDirection(next > prev ? "up" : next < prev ? "down" : null);
           }
           latestPriceRef.current = next;
+          settled = true; // mark settled on first successful fetch
         } catch (err) {
-          // Binance failed — fall back to simulator
+          // Binance failed — fall back to simulator if we never got a price
           if (!settled) {
             startSimulator(source, err instanceof Error ? err.message : "Binance fetch failed");
           }
@@ -152,7 +186,6 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
 
       fetchPrice();
       pollTimerRef.current = setInterval(fetchPrice, 2500);
-      settled = true; // mark as settled so simulator only kicks in on error within fetchPrice
       return () => {
         cancelled = true;
         if (pollTimerRef.current) {
@@ -163,38 +196,9 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     }
 
     // ---------------------------------------------------------------
-    // Path B: Deriv WebSocket for synthetics (with simulator fallback)
+    // Path B: Deriv WebSocket for synthetics (uses outer startSimulator)
     // ---------------------------------------------------------------
     if (source.derivSymbol) {
-      const startSimulator = (
-        src: PriceSource,
-        reason?: string
-      ) => {
-        if (cancelled || settled) return;
-        settled = true;
-        setCurrentSource("simulator");
-        setConnected(true);
-        setIsLoading(false);
-        setError(null);
-
-        const base = FALLBACK_BASE[src.derivSymbol!] ?? 1000;
-        latestPriceRef.current = base;
-        setPrice(base);
-
-        simTimerRef.current = setInterval(() => {
-          if (cancelled) return;
-          const prev = latestPriceRef.current ?? base;
-          const drift = (base - prev) * 0.05;
-          const shock = prev * (Math.random() - 0.5) * 0.002;
-          const next = prev + drift + shock;
-          setPrevPrice(prev);
-          setPrice(next);
-          setDirection(next > prev ? "up" : "down");
-          latestPriceRef.current = next;
-        }, 1500);
-        void reason;
-      };
-
       let connectionTimeout: ReturnType<typeof setTimeout> | null = null;
       let wsIndex = 0;
 
