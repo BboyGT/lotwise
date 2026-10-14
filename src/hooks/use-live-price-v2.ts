@@ -99,11 +99,6 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
   const simTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const latestPriceRef = useRef<number | null>(null);
 
-  // Reset everything when source becomes null
-  const sourceKey = source
-    ? `${source.derivSymbol || ""}|${source.binanceSymbol || ""}|${source.tvScannerSymbol || ""}`
-    : null;
-
   useEffect(() => {
     if (!source) return;
     if (!source.derivSymbol && !source.binanceSymbol && !source.tvScannerSymbol) return;

@@ -208,7 +208,3 @@ export const FX_RATES: Record<string, number> = {
   NGN: 1600,
   JPY: 149,
 };
-
-export function convertUsd(amountUsd: number, target: string): number {
-  return amountUsd * (FX_RATES[target] ?? 1);
-}

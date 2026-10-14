@@ -14,9 +14,7 @@ interface BeforeInstallPromptEvent extends Event {
 export function usePWA() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [swRegistered, setSwRegistered] = useState(false);
 
-  // Register service worker on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
@@ -26,8 +24,6 @@ export function usePWA() {
         const reg = await navigator.serviceWorker.register("/sw.js", {
           scope: "/",
         });
-        setSwRegistered(true);
-        // Check for updates every 60s
         setInterval(() => reg.update().catch(() => {}), 60_000);
       } catch (err) {
         console.warn("[PWA] SW registration failed:", err);
@@ -35,7 +31,6 @@ export function usePWA() {
     };
     register();
 
-    // Detect if already installed (standalone display mode)
     const installed =
       window.matchMedia("(display-mode: standalone)").matches ||
       !!(typeof navigator !== "undefined" && (navigator as { standalone?: boolean }).standalone);
@@ -71,7 +66,6 @@ export function usePWA() {
   return {
     canInstall: !!installPrompt,
     isInstalled,
-    swRegistered,
     promptInstall,
   };
 }

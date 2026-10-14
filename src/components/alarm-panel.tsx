@@ -9,10 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  useAlarmManager,
-  type AlarmSettings,
-} from "@/hooks/use-alarm-manager";
+import { useAlarmManager } from "@/hooks/use-alarm-manager";
 import { testSound, primeAudioContext } from "@/lib/sound-engine";
 import { formatPrice } from "@/lib/calculator";
 
@@ -30,8 +27,6 @@ interface AlarmPanelProps {
     stopLoss?: number;
     takeProfit?: number;
   } | null;
-  /** Active binance symbols for SW background polling (crypto only) */
-  activeBinanceSymbols?: { symbol: string; binanceSymbol: string }[];
 }
 
 export function AlarmPanel({
@@ -54,33 +49,23 @@ export function AlarmPanel({
   const [newAlertPrice, setNewAlertPrice] = useState("");
   const [newAlertDirection, setNewAlertDirection] = useState<"above" | "below">("above");
   const [newAlertLabel, setNewAlertLabel] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
 
   // Sync active alerts to service worker for background polling
-  // (only Binance alerts — SW can't do WS for Deriv)
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    const binanceAlerts = manager.alerts
+    const activeAlerts = manager.alerts
       .filter((a) => a.status === "active")
-      .map((a) => {
-        // Look up the binance symbol from currentSymbolId or activeBinanceSymbols
-        // The page-level hook has access to the symbol specs; for SW we just pass what we know.
-        // We need to pass the symbol's binanceSymbol — but manager doesn't have it directly.
-        // We'll send deriv alerts too so the SW knows about them (even if it can't poll them).
-        return {
-          id: a.id,
-          symbolLabel: a.symbolLabel,
-          targetPrice: a.price,
-          direction: a.direction,
-          type: a.type,
-          label: a.label,
-          // We can't easily resolve deriv/binance here without symbol catalog;
-          // page.tsx will pass a side-channel via activeBinanceSymbols.
-        };
-      });
+      .map((a) => ({
+        id: a.id,
+        symbolLabel: a.symbolLabel,
+        targetPrice: a.price,
+        direction: a.direction,
+        type: a.type,
+        label: a.label,
+      }));
     navigator.serviceWorker?.controller?.postMessage({
       type: "SYNC_ALERTS",
-      alerts: binanceAlerts,
+      alerts: activeAlerts,
     });
   }, [manager.alerts]);
 

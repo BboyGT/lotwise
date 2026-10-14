@@ -64,10 +64,8 @@ import {
   ArrowDown,
   TrendingUp,
   TrendingDown,
-  Bell,
   BellRing,
   Download,
-  Smartphone,
 } from "lucide-react";
 import { TradingViewWidget, TradingViewTicker } from "@/components/tradingview-widget";
 import { SearchableSymbolPicker } from "@/components/searchable-symbol-picker";
@@ -199,7 +197,7 @@ export default function Home() {
   }, [symbol.derivSymbol, symbol.binanceSymbol, symbol.tvScannerSymbol, symbol.decimals]);
   const livePrice = useLivePrice(livePriceSource);
   const hasLiveFeed = !!livePriceSource;
-  // Alias for backward-compat with rest of file
+  // DerivTicks alias — maps livePrice fields to the names used throughout the JSX
   const derivTicks = {
     price: livePrice.price,
     prevPrice: livePrice.prevPrice,
@@ -207,9 +205,7 @@ export default function Home() {
     isLoading: livePrice.isLoading,
     error: livePrice.error,
     connected: livePrice.connected,
-    // Map new "source" field to old "usingFallback" boolean for existing code
-    usingFallback:
-      livePrice.source === "simulator" || livePrice.source === "none",
+    usingFallback: livePrice.source === "simulator" || livePrice.source === "none",
   };
 
   // ----- PWA install prompt -----
@@ -255,8 +251,6 @@ export default function Home() {
       takeProfit: parseFloat(stableTakeProfit) || undefined,
     };
   }, [calc.valid, symbol.id, stableEntry, stableStopLoss, stableTakeProfit]);
-
-  const fxRate = FX_RATES[displayCurrency] ?? 1;
 
   // Unit label: forex = "pips", others = "points"
   const unitLabel = symbol.assetClass === "forex" ? "pips" : "points";
