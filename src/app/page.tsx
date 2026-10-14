@@ -351,8 +351,10 @@ export default function Home() {
       <header className="border-b border-white/5 bg-black/60 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <LotwiseLogo size={32} className="drop-shadow-[0_0_8px_rgba(255,184,0,0.4)] shrink-0 sm:hidden" />
-            <LotwiseLogo size={36} className="drop-shadow-[0_0_8px_rgba(255,184,0,0.4)] shrink-0 hidden sm:block" />
+            <LotwiseLogo
+              size={36}
+              className="drop-shadow-[0_0_8px_rgba(255,184,0,0.4)] shrink-0 w-8 h-8 sm:w-9 sm:h-9"
+            />
             <div className="min-w-0">
               <h1 className="text-sm sm:text-base font-bold tracking-tight text-white leading-none">
                 Lot<span className="text-amber-400">wise</span>
@@ -1176,7 +1178,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-slate-600">
             <span className="flex items-center gap-2">
-              <LotwiseLogo size={14} />
+              <LotwiseLogo size={18} className="shrink-0 w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               LOTWISE · POSITION TERMINAL
             </span>
             <span className="flex items-center gap-3">

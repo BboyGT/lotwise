@@ -1,3 +1,4 @@
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
 interface LotwiseLogoProps {
@@ -9,13 +10,19 @@ interface LotwiseLogoProps {
  * Lotwise brand mark — a rounded-square frame containing a bold "L"
  * lettermark whose horizontal base extends into an upward trend arrow.
  *
- * Design language: distinctive geometric lettermark (not the overused
- * candlestick-in-hexagon trope), amber gradient, soft glow.
+ * Uses React.useId() to generate unique gradient/filter IDs per instance
+ * so multiple logos on the same page don't clash.
  */
 export function LotwiseLogo({
   size = 32,
   className,
 }: LotwiseLogoProps) {
+  const reactId = React.useId().replace(/:/g, "");
+  const bgId = `lw-bg-${reactId}`;
+  const lId = `lw-l-${reactId}`;
+  const arrowId = `lw-arrow-${reactId}`;
+  const glowId = `lw-glow-${reactId}`;
+
   return (
     <svg
       width={size}
@@ -27,20 +34,20 @@ export function LotwiseLogo({
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="lw-bg" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={bgId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#1A1410" />
           <stop offset="100%" stopColor="#0A0805" />
         </linearGradient>
-        <linearGradient id="lw-l" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={lId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#FFE9A8" />
           <stop offset="50%" stopColor="#FFB000" />
           <stop offset="100%" stopColor="#FF7A00" />
         </linearGradient>
-        <linearGradient id="lw-arrow" x1="0" y1="0" x2="1" y2="0">
+        <linearGradient id={arrowId} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="#FFB000" />
           <stop offset="100%" stopColor="#FFE9A8" />
         </linearGradient>
-        <filter id="lw-glow" x="-50%" y="-50%" width="200%" height="200%">
+        <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="3" result="b" />
           <feMerge>
             <feMergeNode in="b" />
@@ -56,8 +63,8 @@ export function LotwiseLogo({
         width="108"
         height="108"
         rx="22"
-        fill="url(#lw-bg)"
-        stroke="url(#lw-l)"
+        fill={`url(#${bgId})`}
+        stroke={`url(#${lId})`}
         strokeWidth="2.5"
       />
       {/* Inner border accent */}
@@ -68,33 +75,33 @@ export function LotwiseLogo({
         height="100"
         rx="18"
         fill="none"
-        stroke="url(#lw-l)"
+        stroke={`url(#${lId})`}
         strokeWidth="0.5"
         strokeOpacity="0.25"
       />
 
       {/* The "L" lettermark */}
-      <g filter="url(#lw-glow)">
-        <rect x="34" y="32" width="14" height="52" rx="3" fill="url(#lw-l)" />
+      <g filter={`url(#${glowId})`}>
+        <rect x="34" y="32" width="14" height="52" rx="3" fill={`url(#${lId})`} />
         <rect x="36" y="34" width="3" height="48" rx="1.5" fill="#FFFCE8" fillOpacity="0.5" />
-        <rect x="34" y="70" width="38" height="14" rx="3" fill="url(#lw-l)" />
+        <rect x="34" y="70" width="38" height="14" rx="3" fill={`url(#${lId})`} />
         <rect x="36" y="72" width="34" height="3" rx="1.5" fill="#FFFCE8" fillOpacity="0.5" />
       </g>
 
       {/* Trend arrow extending from the L's base */}
-      <g filter="url(#lw-glow)">
+      <g filter={`url(#${glowId})`}>
         <path
           d="M70 70 L82 70 L82 50 L92 50"
-          stroke="url(#lw-arrow)"
+          stroke={`url(#${arrowId})`}
           strokeWidth="6"
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"
         />
-        <path d="M85 44 L95 50 L85 56 Z" fill="url(#lw-arrow)" />
+        <path d="M85 44 L95 50 L85 56 Z" fill={`url(#${arrowId})`} />
       </g>
 
-      <circle cx="95" cy="50" r="1.5" fill="#FFFCE8" filter="url(#lw-glow)" />
+      <circle cx="95" cy="50" r="1.5" fill="#FFFCE8" filter={`url(#${glowId})`} />
     </svg>
   );
 }
