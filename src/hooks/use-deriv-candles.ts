@@ -178,7 +178,7 @@ export function useDerivCandles(
           try { ws.close(); } catch {}
           tryConnect();
         }
-      }, 4000);
+      }, 10000); // 10s timeout — some networks are slow on first WS handshake
 
       ws.onopen = () => {
         if (cancelled || settled) return;

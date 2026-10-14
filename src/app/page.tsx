@@ -76,6 +76,7 @@ import { AlarmPanel } from "@/components/alarm-panel";
 import { LegalModal } from "@/components/legal-modal";
 import { EquityCurveChart } from "@/components/equity-curve-chart";
 import { SyntheticCandleChart } from "@/components/synthetic-candle-chart";
+import { ConnectionDiagnostic } from "@/components/connection-diagnostic";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -614,6 +615,12 @@ export default function Home() {
                   <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">
                     No live feed — refer to chart below
                   </p>
+                </div>
+              )}
+              {/* Connection diagnostic — especially useful for synthetic (Deriv WS) */}
+              {hasLiveFeed && symbol.derivSymbol && (
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <ConnectionDiagnostic />
                 </div>
               )}
             </CardContent>
