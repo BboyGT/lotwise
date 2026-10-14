@@ -208,17 +208,28 @@ export default function Home() {
   // ----- PWA install prompt -----
   const pwa = usePWA();
 
+  // Stable values for SSR/first-render — empty/default until hydrated to
+  // avoid hydration mismatches when localStorage loads saved inputs.
+  // The server renders with defaults (100, 10, ""), and so does the first
+  // client render. After hydration, actual saved values kick in.
+  const stableEntry = hydrated ? entry : "";
+  const stableStopLoss = hydrated ? stopLoss : "";
+  const stableTakeProfit = hydrated ? takeProfit : "";
+  const stableBalance = hydrated ? balance : 100;
+  const stableRiskPercent = hydrated ? riskPercent : 10;
+  const stableCurrency = hydrated ? displayCurrency : "USD" as CurrencyCode;
+
   const calc = useMemo(
     () =>
       calculateTrade({
         symbol,
-        balance,
-        riskPercent,
-        entry: parseFloat(entry) || 0,
-        stopLoss: parseFloat(stopLoss) || 0,
-        takeProfit: parseFloat(takeProfit) || 0,
+        balance: stableBalance,
+        riskPercent: stableRiskPercent,
+        entry: parseFloat(stableEntry) || 0,
+        stopLoss: parseFloat(stableStopLoss) || 0,
+        takeProfit: parseFloat(stableTakeProfit) || 0,
       }),
-    [symbol, balance, riskPercent, entry, stopLoss, takeProfit]
+    [symbol, stableBalance, stableRiskPercent, stableEntry, stableStopLoss, stableTakeProfit]
   );
 
   // ----- Alarm / Notification state -----
@@ -232,11 +243,11 @@ export default function Home() {
     if (!calc.valid) return null;
     return {
       symbolId: symbol.id,
-      entry: parseFloat(entry) || undefined,
-      stopLoss: parseFloat(stopLoss) || undefined,
-      takeProfit: parseFloat(takeProfit) || undefined,
+      entry: parseFloat(stableEntry) || undefined,
+      stopLoss: parseFloat(stableStopLoss) || undefined,
+      takeProfit: parseFloat(stableTakeProfit) || undefined,
     };
-  }, [calc.valid, symbol.id, entry, stopLoss, takeProfit]);
+  }, [calc.valid, symbol.id, stableEntry, stableStopLoss, stableTakeProfit]);
 
   const fxRate = FX_RATES[displayCurrency] ?? 1;
 
@@ -342,9 +353,9 @@ export default function Home() {
   // We compute percentages of the full SL→TP distance.
   const rrBar = useMemo(() => {
     if (!calc.valid) return null;
-    const sl = parseFloat(stopLoss);
-    const tp = parseFloat(takeProfit);
-    const e = parseFloat(entry);
+    const sl = parseFloat(stableStopLoss);
+    const tp = parseFloat(stableTakeProfit);
+    const e = parseFloat(stableEntry);
     const min = Math.min(sl, tp);
     const max = Math.max(sl, tp);
     const range = max - min || 1;
@@ -352,11 +363,11 @@ export default function Home() {
     const slPct = ((sl - min) / range) * 100;
     const tpPct = ((tp - min) / range) * 100;
     return { entryPct, slPct, tpPct, isLong: sl < e };
-  }, [calc.valid, stopLoss, takeProfit, entry]);
+  }, [calc.valid, stableStopLoss, stableTakeProfit, stableEntry]);
 
   // Display the converted amount (USD → display currency)
   function conv(amountUsd: number): number {
-    return amountUsd / FX_RATES.USD * FX_RATES[displayCurrency];
+    return amountUsd / FX_RATES.USD * (FX_RATES[stableCurrency] ?? 1);
   }
 
   // Format live tick price for display
@@ -455,7 +466,7 @@ export default function Home() {
               )}
             </div>
             <Select
-              value={displayCurrency}
+              value={stableCurrency}
               onValueChange={(v) => setDisplayCurrency(v as CurrencyCode)}
             >
               <SelectTrigger className="w-[80px] h-8 bg-white/5 border-white/10 font-mono text-xs">
@@ -637,7 +648,7 @@ export default function Home() {
                     Balance (USD)
                   </Label>
                   <span className="text-[10px] font-mono text-slate-600">
-                    ≈ {formatMoney(conv(balance), displayCurrency)}
+                    ≈ {formatMoney(conv(stableBalance), stableCurrency)}
                   </span>
                 </div>
                 <div className="flex items-stretch gap-1">
@@ -655,7 +666,7 @@ export default function Home() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 font-mono text-sm pointer-events-none">$</span>
                     <Input
                       type="number"
-                      value={balance}
+                      value={stableBalance}
                       min={0}
                       step={10}
                       onChange={(e) => setBalance(parseFloat(e.target.value) || 0)}
@@ -685,7 +696,7 @@ export default function Home() {
                       type="button"
                       onClick={() => setBalance(preset.value)}
                       className={`h-6 rounded text-[10px] font-mono uppercase tracking-wider transition-colors ${
-                        balance === preset.value
+                        stableBalance === preset.value
                           ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                           : "bg-black/40 text-slate-500 border border-white/5 hover:bg-white/5 hover:text-slate-300"
                       }`}
@@ -703,11 +714,11 @@ export default function Home() {
                     Risk per trade
                   </Label>
                   <span className="text-lg font-mono font-bold text-amber-400 tabular-nums">
-                    {riskPercent}%
+                    {stableRiskPercent}%
                   </span>
                 </div>
                 <Slider
-                  value={[riskPercent]}
+                  value={[stableRiskPercent]}
                   min={0.5}
                   max={100}
                   step={0.5}
@@ -725,7 +736,7 @@ export default function Home() {
                 <div className="flex gap-1">
                   <Input
                     type="number"
-                    value={riskPercent}
+                    value={stableRiskPercent}
                     min={0}
                     max={100}
                     step={0.5}
@@ -749,7 +760,7 @@ export default function Home() {
                       type="button"
                       onClick={() => setRiskPercent(preset.value)}
                       className={`flex-1 h-8 rounded text-[10px] font-mono uppercase tracking-wider transition-colors ${
-                        riskPercent === preset.value
+                        stableRiskPercent === preset.value
                           ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                           : "bg-black/40 text-slate-500 border border-white/5 hover:bg-white/5 hover:text-slate-300"
                       }`}
@@ -758,16 +769,16 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
-                {riskPercent > 20 && (
+                {stableRiskPercent > 20 && (
                   <p className="text-[10px] font-mono text-rose-400/80 uppercase tracking-wider flex items-center gap-1.5 pt-1">
                     <span className="rm-pulse-dot bg-rose-400" style={{ width: 5, height: 5 }} />
-                    High risk — {riskPercent}% of balance at stake
+                    High risk — {stableRiskPercent}% of balance at stake
                   </p>
                 )}
                 <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-white/5 mt-2 pt-2">
                   <span className="text-slate-500 uppercase tracking-wider">At risk:</span>
                   <span className="font-semibold text-rose-400 tabular-nums text-sm">
-                    {formatMoney(conv((balance * riskPercent) / 100), displayCurrency)}
+                    {formatMoney(conv((stableBalance * stableRiskPercent) / 100), stableCurrency)}
                   </span>
                 </div>
               </div>
@@ -803,7 +814,7 @@ export default function Home() {
                 <Input
                   type="number"
                   placeholder="0.00"
-                  value={entry}
+                  value={stableEntry}
                   step="any"
                   onChange={(e) => setEntry(e.target.value)}
                   className="bg-black/40 border-white/10 text-white font-mono tabular-nums focus-visible:border-amber-500/40"
@@ -817,7 +828,7 @@ export default function Home() {
                   <Input
                     type="number"
                     placeholder="0.00"
-                    value={stopLoss}
+                    value={stableStopLoss}
                     step="any"
                     onChange={(e) => setStopLoss(e.target.value)}
                     className="bg-black/40 border-white/10 text-white font-mono tabular-nums focus-visible:border-rose-500/40"
@@ -830,7 +841,7 @@ export default function Home() {
                   <Input
                     type="number"
                     placeholder="0.00"
-                    value={takeProfit}
+                    value={stableTakeProfit}
                     step="any"
                     onChange={(e) => setTakeProfit(e.target.value)}
                     className="bg-black/40 border-white/10 text-white font-mono tabular-nums focus-visible:border-emerald-500/40"
@@ -972,9 +983,9 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="flex justify-between text-[10px] font-mono text-slate-500">
-                      <span>SL @ <span className="text-rose-300">{formatPrice(parseFloat(stopLoss), symbol.decimals)}</span></span>
-                      <span className="text-amber-400">ENTRY @ <span className="text-amber-300">{formatPrice(parseFloat(entry), symbol.decimals)}</span></span>
-                      <span>TP @ <span className="text-emerald-300">{formatPrice(parseFloat(takeProfit), symbol.decimals)}</span></span>
+                      <span>SL @ <span className="text-rose-300">{formatPrice(parseFloat(stableStopLoss), symbol.decimals)}</span></span>
+                      <span className="text-amber-400">ENTRY @ <span className="text-amber-300">{formatPrice(parseFloat(stableEntry), symbol.decimals)}</span></span>
+                      <span>TP @ <span className="text-emerald-300">{formatPrice(parseFloat(stableTakeProfit), symbol.decimals)}</span></span>
                     </div>
                   </div>
                 )}
@@ -1024,13 +1035,13 @@ export default function Home() {
                   <div className="flex justify-between pr-3">
                     <span className="text-slate-500 uppercase tracking-wider text-[10px]">Direction</span>
                     <span className={calc.minLotOk ? "text-cyan-300" : "text-rose-300"}>
-                      {stopLoss && entry && parseFloat(stopLoss) < parseFloat(entry) ? "▲ LONG" : "▼ SHORT"}
+                      {stableStopLoss && stableEntry && parseFloat(stableStopLoss) < parseFloat(stableEntry) ? "▲ LONG" : "▼ SHORT"}
                     </span>
                   </div>
                   <div className="flex justify-between pl-3 border-l border-white/5">
                     <span className="text-slate-500 uppercase tracking-wider text-[10px]">Acct risk</span>
                     <span className="text-amber-300 tabular-nums">
-                      {riskPercent}% of {formatMoney(balance, "USD")}
+                      {stableRiskPercent}% of {formatMoney(stableBalance, "USD")}
                     </span>
                   </div>
                 </div>
@@ -1195,12 +1206,12 @@ export default function Home() {
                     <div className="rounded-md border border-white/5 bg-black/40 p-3">
                       <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
                         <TrendingUp className="h-3 w-3 text-amber-400" />
-                        Equity Curve · starting {formatMoney(balance, displayCurrency)}
+                        Equity Curve · starting {formatMoney(stableBalance, stableCurrency)}
                       </p>
                       <EquityCurveChart
                         trades={history}
-                        startingBalance={balance}
-                        displayCurrency={displayCurrency}
+                        startingBalance={stableBalance}
+                        displayCurrency={stableCurrency}
                       />
                     </div>
 
