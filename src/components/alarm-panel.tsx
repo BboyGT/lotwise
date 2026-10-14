@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, BellRing, Plus, Trash2, X, Volume2, VolumeX, Check, RotateCcw, Settings, AlertTriangle, ArrowUp, ArrowDown, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,8 @@ interface AlarmPanelProps {
     stopLoss?: number;
     takeProfit?: number;
   } | null;
+  /** Active binance symbols for SW background polling (crypto only) */
+  activeBinanceSymbols?: { symbol: string; binanceSymbol: string }[];
 }
 
 export function AlarmPanel({
@@ -53,6 +55,34 @@ export function AlarmPanel({
   const [newAlertDirection, setNewAlertDirection] = useState<"above" | "below">("above");
   const [newAlertLabel, setNewAlertLabel] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+
+  // Sync active alerts to service worker for background polling
+  // (only Binance alerts — SW can't do WS for Deriv)
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const binanceAlerts = manager.alerts
+      .filter((a) => a.status === "active")
+      .map((a) => {
+        // Look up the binance symbol from currentSymbolId or activeBinanceSymbols
+        // The page-level hook has access to the symbol specs; for SW we just pass what we know.
+        // We need to pass the symbol's binanceSymbol — but manager doesn't have it directly.
+        // We'll send deriv alerts too so the SW knows about them (even if it can't poll them).
+        return {
+          id: a.id,
+          symbolLabel: a.symbolLabel,
+          targetPrice: a.price,
+          direction: a.direction,
+          type: a.type,
+          label: a.label,
+          // We can't easily resolve deriv/binance here without symbol catalog;
+          // page.tsx will pass a side-channel via activeBinanceSymbols.
+        };
+      });
+    navigator.serviceWorker?.controller?.postMessage({
+      type: "SYNC_ALERTS",
+      alerts: binanceAlerts,
+    });
+  }, [manager.alerts]);
 
   if (!open) return null;
 

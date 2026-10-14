@@ -73,6 +73,8 @@ import { TradingViewWidget, TradingViewTicker } from "@/components/tradingview-w
 import { SearchableSymbolPicker } from "@/components/searchable-symbol-picker";
 import { LotwiseLogo } from "@/components/lotwise-logo";
 import { AlarmPanel } from "@/components/alarm-panel";
+import { LegalModal } from "@/components/legal-modal";
+import { EquityCurveChart } from "@/components/equity-curve-chart";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -92,6 +94,9 @@ interface TradeRecord {
   actualLoss: number;
   actualProfit: number;
   rrRatio: number;
+  note?: string;              // user journal note
+  outcome?: "win" | "loss" | "breakeven" | "pending";  // user-set outcome
+  realizedPnL?: number;       // user-set realized P/L for equity curve
 }
 
 const HISTORY_KEY = "lotwise.history.v1";
@@ -218,6 +223,11 @@ export default function Home() {
 
   // ----- Alarm / Notification state -----
   const [alarmPanelOpen, setAlarmPanelOpen] = useState(false);
+  // ----- Legal modal -----
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalTab, setLegalTab] = useState<"tos" | "privacy" | "disclaimer">("tos");
+  // ----- Journal note for save-trade flow -----
+  const [tradeNote, setTradeNote] = useState("");
   const tradeLevelsForAlarm = useMemo(() => {
     if (!calc.valid) return null;
     return {
@@ -290,8 +300,23 @@ export default function Home() {
       actualLoss: calc.actualLoss,
       actualProfit: calc.actualProfit,
       rrRatio: calc.rrRatio,
+      note: tradeNote.trim() || undefined,
+      outcome: "pending",
     };
-    const next = [record, ...history].slice(0, 20);
+    const next = [record, ...history].slice(0, 50);
+    setHistory(next);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    setTradeNote(""); // reset note after save
+  }
+
+  function updateTradeRecord(id: string, updates: Partial<TradeRecord>) {
+    const next = history.map((r) => (r.id === id ? { ...r, ...updates } : r));
+    setHistory(next);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  }
+
+  function deleteTrade(id: string) {
+    const next = history.filter((r) => r.id !== id);
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   }
@@ -684,17 +709,17 @@ export default function Home() {
                 <Slider
                   value={[riskPercent]}
                   min={0.5}
-                  max={20}
+                  max={100}
                   step={0.5}
                   onValueChange={(v) => setRiskPercent(v[0])}
                 />
                 {/* Tick labels under slider */}
                 <div className="flex justify-between text-[9px] font-mono text-slate-600 -mt-1">
                   <span>0.5%</span>
-                  <span>5%</span>
-                  <span>10%</span>
-                  <span>15%</span>
-                  <span>20%</span>
+                  <span>25%</span>
+                  <span>50%</span>
+                  <span>75%</span>
+                  <span>100%</span>
                 </div>
                 {/* Fine input + presets */}
                 <div className="flex gap-1">
@@ -702,8 +727,12 @@ export default function Home() {
                     type="number"
                     value={riskPercent}
                     min={0}
+                    max={100}
                     step={0.5}
-                    onChange={(e) => setRiskPercent(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value) || 0;
+                      setRiskPercent(Math.min(100, Math.max(0, v)));
+                    }}
                     className="bg-black/40 border-white/10 text-white font-mono tabular-nums text-sm focus-visible:border-amber-500/40 h-8 w-20"
                   />
                   {[
@@ -711,6 +740,9 @@ export default function Home() {
                     { label: "2%", value: 2 },
                     { label: "5%", value: 5 },
                     { label: "10%", value: 10 },
+                    { label: "25%", value: 25 },
+                    { label: "50%", value: 50 },
+                    { label: "100%", value: 100 },
                   ].map((preset) => (
                     <button
                       key={preset.value}
@@ -726,6 +758,12 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
+                {riskPercent > 20 && (
+                  <p className="text-[10px] font-mono text-rose-400/80 uppercase tracking-wider flex items-center gap-1.5 pt-1">
+                    <span className="rm-pulse-dot bg-rose-400" style={{ width: 5, height: 5 }} />
+                    High risk — {riskPercent}% of balance at stake
+                  </p>
+                )}
                 <div className="flex items-center justify-between text-[10px] font-mono pt-1 border-t border-white/5 mt-2 pt-2">
                   <span className="text-slate-500 uppercase tracking-wider">At risk:</span>
                   <span className="font-semibold text-rose-400 tabular-nums text-sm">
@@ -1075,6 +1113,24 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* Journal note input */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                    Journal note (optional)
+                  </Label>
+                  <textarea
+                    value={tradeNote}
+                    onChange={(e) => setTradeNote(e.target.value)}
+                    placeholder="e.g. breakout from consolidation, trend continuation, news event, setup quality…"
+                    rows={2}
+                    maxLength={300}
+                    className="w-full rounded-md bg-black/40 border border-white/10 text-white font-mono text-xs p-2.5 resize-none focus:outline-none focus:border-amber-500/40 placeholder:text-slate-600"
+                  />
+                  <p className="text-[9px] font-mono text-slate-600 text-right">
+                    {tradeNote.length}/300
+                  </p>
+                </div>
+
                 {/* Save */}
                 <Button
                   onClick={saveTrade}
@@ -1113,59 +1169,141 @@ export default function Home() {
               </CollapsibleTrigger>
             </CardHeader>
             <CollapsibleContent>
-              <CardContent>
+              <CardContent className="space-y-4">
                 {history.length === 0 ? (
                   <p className="text-xs font-mono text-slate-600 text-center py-6 uppercase tracking-wider">
                     No saved trades yet
                   </p>
                 ) : (
-                  <div className="space-y-1.5 max-h-96 overflow-y-auto rm-scroll pr-1">
-                    {history.map((rec) => (
-                      <div
-                        key={rec.id}
-                        className="flex items-center justify-between gap-3 rounded-md border border-white/5 bg-black/40 p-2.5 hover:bg-white/5 transition font-mono text-xs"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-white">
-                              {rec.symbolLabel}
-                            </span>
-                            <Badge
-                              variant="secondary"
-                              className="bg-amber-500/10 text-amber-400 text-[9px] px-1.5 py-0"
-                            >
-                              {formatLot(rec.recommendedLot)} lot
-                            </Badge>
+                  <>
+                    {/* Equity Curve */}
+                    <div className="rounded-md border border-white/5 bg-black/40 p-3">
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                        <TrendingUp className="h-3 w-3 text-amber-400" />
+                        Equity Curve · starting {formatMoney(balance, displayCurrency)}
+                      </p>
+                      <EquityCurveChart
+                        trades={history}
+                        startingBalance={balance}
+                        displayCurrency={displayCurrency}
+                      />
+                    </div>
+
+                    {/* Trade list with journal + outcome controls */}
+                    <div className="space-y-2 max-h-96 overflow-y-auto rm-scroll pr-1">
+                      {history.map((rec) => (
+                        <div
+                          key={rec.id}
+                          className="rounded-md border border-white/5 bg-black/40 p-2.5 hover:bg-white/5 transition font-mono text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-semibold text-white truncate">
+                                {rec.symbolLabel}
+                              </span>
+                              <Badge
+                                variant="secondary"
+                                className="bg-amber-500/10 text-amber-400 text-[9px] px-1.5 py-0"
+                              >
+                                {formatLot(rec.recommendedLot)} lot
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => replayTrade(rec)}
+                                className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-amber-300 transition-colors"
+                              >
+                                Replay
+                              </button>
+                              <button
+                                onClick={() => deleteTrade(rec.id)}
+                                className="text-[10px] font-mono p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                aria-label="Delete trade"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
                           </div>
-                          <div className="text-[10px] text-slate-600 mt-0.5">
+                          <div className="text-[10px] text-slate-600 mb-0.5">
                             {new Date(rec.timestamp).toLocaleString()}
                           </div>
-                          <div className="text-[10px] text-slate-500 mt-0.5 flex gap-3 flex-wrap">
+                          <div className="text-[10px] text-slate-500 mb-2 flex gap-3 flex-wrap">
                             <span>R:R 1:{rec.rrRatio.toFixed(2)}</span>
                             <span className="text-rose-300">L: {formatMoney(rec.actualLoss, "USD")}</span>
                             <span className="text-emerald-300">W: {formatMoney(rec.actualProfit, "USD")}</span>
                           </div>
+
+                          {/* Outcome selector */}
+                          <div className="flex items-center gap-1 mb-2">
+                            <span className="text-[9px] font-mono uppercase tracking-wider text-slate-500 mr-1">
+                              Outcome:
+                            </span>
+                            {(["pending", "win", "loss", "breakeven"] as const).map((o) => (
+                              <button
+                                key={o}
+                                onClick={() => updateTradeRecord(rec.id, { outcome: o })}
+                                className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border transition-colors ${
+                                  (rec.outcome || "pending") === o
+                                    ? o === "win"
+                                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                      : o === "loss"
+                                      ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                      : o === "breakeven"
+                                      ? "bg-slate-500/20 text-slate-300 border-slate-500/40"
+                                      : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                    : "bg-black/40 text-slate-500 border-white/5 hover:bg-white/5"
+                                }`}
+                              >
+                                {o === "win" ? "W" : o === "loss" ? "L" : o === "breakeven" ? "BE" : "?"}
+                              </button>
+                            ))}
+                            {rec.outcome && rec.outcome !== "pending" && (
+                              <span className="ml-auto text-[9px] font-mono text-slate-600">
+                                {rec.outcome === "win"
+                                  ? `+${formatMoney(rec.actualProfit, "USD")}`
+                                  : rec.outcome === "loss"
+                                  ? `-${formatMoney(rec.actualLoss, "USD")}`
+                                  : "±0"}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Note (existing or add) */}
+                          {rec.note ? (
+                            <div className="rounded bg-amber-500/[0.06] border border-amber-500/15 p-1.5 text-[10px] font-mono text-amber-200/90 italic">
+                              "{rec.note}"
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="Add note…"
+                              maxLength={200}
+                              className="w-full bg-black/30 border border-white/5 rounded px-2 py-1 text-[10px] font-mono text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-amber-500/30"
+                              onBlur={(e) => {
+                                const v = e.target.value.trim();
+                                if (v) updateTradeRecord(rec.id, { note: v });
+                                e.target.value = "";
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                            />
+                          )}
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 bg-white/5 border-white/10 text-[10px] font-mono uppercase tracking-wider"
-                          onClick={() => replayTrade(rec)}
-                        >
-                          Replay
-                        </Button>
-                      </div>
-                    ))}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearHistory}
-                      className="w-full text-rose-300 hover:text-rose-200 hover:bg-rose-500/5 font-mono text-[10px] uppercase tracking-wider mt-2"
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Clear All
-                    </Button>
-                  </div>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearHistory}
+                        className="w-full text-rose-300 hover:text-rose-200 hover:bg-rose-500/5 font-mono text-[10px] uppercase tracking-wider mt-2"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Clear All
+                      </Button>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </CollapsibleContent>
@@ -1176,21 +1314,45 @@ export default function Home() {
       {/* ===== Footer ===== */}
       <footer className="border-t border-white/5 bg-black/60 mt-auto">
         <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-slate-600">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-[10px] font-mono uppercase tracking-wider text-slate-600">
             <span className="flex items-center gap-2">
               <LotwiseLogo size={18} className="shrink-0 w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               LOTWISE · POSITION TERMINAL
             </span>
-            <span className="flex items-center gap-3">
-              <span>SYNTHETIC FEED · DERIV WS</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => { setLegalTab("tos"); setLegalModalOpen(true); }}
+                className="text-slate-500 hover:text-amber-300 transition-colors"
+              >
+                Terms
+              </button>
               <span className="text-slate-700">·</span>
-              <span>CHARTS · TRADINGVIEW</span>
+              <button
+                onClick={() => { setLegalTab("privacy"); setLegalModalOpen(true); }}
+                className="text-slate-500 hover:text-amber-300 transition-colors"
+              >
+                Privacy
+              </button>
+              <span className="text-slate-700">·</span>
+              <button
+                onClick={() => { setLegalTab("disclaimer"); setLegalModalOpen(true); }}
+                className="text-slate-500 hover:text-amber-300 transition-colors"
+              >
+                Disclaimer
+              </button>
               <span className="text-slate-700">·</span>
               <span className="text-amber-500/70">FOR EDUCATIONAL USE</span>
-            </span>
+            </div>
           </div>
         </div>
       </footer>
+
+      {/* ===== Legal Modal ===== */}
+      <LegalModal
+        open={legalModalOpen}
+        onClose={() => setLegalModalOpen(false)}
+        initialTab={legalTab}
+      />
 
       {/* ===== Alarm Panel ===== */}
       <AlarmPanel
