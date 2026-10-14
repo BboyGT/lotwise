@@ -18,7 +18,7 @@ import {
   formatPrice,
   FX_RATES,
 } from "@/lib/calculator";
-import { useLivePrice } from "@/hooks/use-live-price";
+import { useLivePrice } from "@/hooks/use-live-price-v2";
 import { useAlarmManager } from "@/hooks/use-alarm-manager";
 import { usePWA } from "@/hooks/use-pwa";
 import { primeAudioContext } from "@/lib/sound-engine";
@@ -184,14 +184,19 @@ export default function Home() {
     }
   }
 
-  // Live price source — Deriv WS for synthetics, Binance REST for crypto
-  const livePriceSource = symbol.derivSymbol || symbol.binanceSymbol
-    ? {
-        derivSymbol: symbol.derivSymbol,
-        binanceSymbol: symbol.binanceSymbol,
-        decimals: symbol.decimals,
-      }
-    : null;
+  // Live price source — Deriv WS for synthetics, Binance REST for crypto,
+  // TradingView scanner for forex/indices. Memoized to ensure stable reference.
+  const livePriceSource = useMemo(() => {
+    if (!symbol.derivSymbol && !symbol.binanceSymbol && !symbol.tvScannerSymbol) {
+      return null;
+    }
+    return {
+      derivSymbol: symbol.derivSymbol,
+      binanceSymbol: symbol.binanceSymbol,
+      tvScannerSymbol: symbol.tvScannerSymbol,
+      decimals: symbol.decimals,
+    };
+  }, [symbol.derivSymbol, symbol.binanceSymbol, symbol.tvScannerSymbol, symbol.decimals]);
   const livePrice = useLivePrice(livePriceSource);
   const hasLiveFeed = !!livePriceSource;
   // Alias for backward-compat with rest of file
@@ -454,9 +459,13 @@ export default function Home() {
                     ? derivTicks.usingFallback
                       ? livePrice.source === "binance-rest"
                         ? "Binance · Live"
+                        : livePrice.source === "tv-scanner"
+                        ? "TV · Live"
                         : "Deriv WS · SIM"
                       : livePrice.source === "binance-rest"
                       ? "Binance · Live"
+                      : livePrice.source === "tv-scanner"
+                      ? "TV · Live"
                       : "Deriv WS · Live"
                     : "Connecting…"
                   : "TV Chart Mode"}
@@ -546,6 +555,8 @@ export default function Home() {
                       ? "DERIV · WS"
                       : livePrice.source === "binance-rest"
                       ? "BINANCE · REST"
+                      : livePrice.source === "tv-scanner"
+                      ? "TV · SCANNER"
                       : livePrice.source === "simulator"
                       ? symbol.derivSymbol
                         ? "DERIV · SIM"
@@ -587,13 +598,15 @@ export default function Home() {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-                    <span>Source: <span className="text-slate-300">{symbol.derivSymbol || symbol.binanceSymbol || "—"}</span></span>
+                    <span>Source: <span className="text-slate-300">{symbol.derivSymbol || symbol.binanceSymbol || symbol.tvScannerSymbol || "—"}</span></span>
                     <span>·</span>
                     <span>
                       {livePrice.source === "simulator"
                         ? "Simulated (WS unreachable in sandbox)"
                         : livePrice.source === "binance-rest"
                         ? "Live · Binance REST"
+                        : livePrice.source === "tv-scanner"
+                        ? "Live · TradingView Scanner"
                         : livePrice.source === "deriv-ws"
                         ? "Live · Deriv WS"
                         : derivTicks.isLoading

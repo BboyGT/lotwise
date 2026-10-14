@@ -27,7 +27,7 @@ export interface UseLivePriceResult {
   isLoading: boolean;
   error: string | null;
   connected: boolean;
-  source: "deriv-ws" | "binance-rest" | "simulator" | "none";
+  source: "deriv-ws" | "binance-rest" | "tv-scanner" | "simulator" | "none";
 }
 
 // Fallback baseline prices for synthetic symbols when WS is unreachable.
@@ -80,6 +80,7 @@ const FALLBACK_BASE: Record<string, number> = {
 interface PriceSource {
   derivSymbol?: string;
   binanceSymbol?: string;
+  tvScannerSymbol?: string;  // TradingView scanner symbol (forex/indices)
   decimals: number;
 }
 
@@ -100,12 +101,12 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
 
   // Reset everything when source becomes null
   const sourceKey = source
-    ? `${source.derivSymbol || ""}|${source.binanceSymbol || ""}`
+    ? `${source.derivSymbol || ""}|${source.binanceSymbol || ""}|${source.tvScannerSymbol || ""}`
     : null;
 
   useEffect(() => {
     if (!source) return;
-    if (!source.derivSymbol && !source.binanceSymbol) return;
+    if (!source.derivSymbol && !source.binanceSymbol && !source.tvScannerSymbol) return;
 
     setIsLoading(true);
     setError(null);
@@ -150,7 +151,54 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     };
 
     // ---------------------------------------------------------------
-    // Path A: Binance REST polling for crypto
+    // Path A: TradingView scanner polling for forex/indices
+    // ---------------------------------------------------------------
+    if (source.tvScannerSymbol && !source.derivSymbol && !source.binanceSymbol) {
+      setCurrentSource("tv-scanner");
+      setConnected(true);
+      setIsLoading(false);
+
+      const fetchPrice = async () => {
+        if (cancelled) return;
+        try {
+          const url = `https://scanner.tradingview.com/symbol?symbol=${encodeURIComponent(
+            source.tvScannerSymbol!
+          )}&fields=close,change`;
+          const res = await fetch(url, { cache: "no-store" });
+          if (!res.ok) throw new Error(`TV scanner HTTP ${res.status}`);
+          const data = await res.json();
+          if (typeof data.close !== "number" || data.close <= 0) {
+            throw new Error("Invalid TV scanner response");
+          }
+          const next = data.close;
+          const prev = latestPriceRef.current;
+          setPrevPrice(prev);
+          setPrice(next);
+          if (prev != null) {
+            setDirection(next > prev ? "up" : next < prev ? "down" : null);
+          }
+          latestPriceRef.current = next;
+          settled = true;
+        } catch (err) {
+          if (!settled) {
+            startSimulator(source, err instanceof Error ? err.message : "TV scanner fetch failed");
+          }
+        }
+      };
+
+      fetchPrice();
+      pollTimerRef.current = setInterval(fetchPrice, 3000);
+      return () => {
+        cancelled = true;
+        if (pollTimerRef.current) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
+      };
+    }
+
+    // ---------------------------------------------------------------
+    // Path B: Binance REST polling for crypto
     // ---------------------------------------------------------------
     if (source.binanceSymbol && !source.derivSymbol) {
       setCurrentSource("binance-rest");
@@ -312,7 +360,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     // No source — nothing to do
     // ---------------------------------------------------------------
     return () => {};
-  }, [sourceKey]);
+  }, [source?.derivSymbol, source?.binanceSymbol, source?.tvScannerSymbol]);
 
   // Reset when source becomes null
   const isLive = !!source;

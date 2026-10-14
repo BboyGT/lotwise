@@ -9,6 +9,7 @@ export interface SymbolSpec {
   tvSymbol: string;          // TradingView ticker (best-effort — TV doesn't list all Deriv synthetics)
   derivSymbol?: string;      // Deriv API symbol for live ticks (synthetic only)
   binanceSymbol?: string;   // Binance API symbol (crypto only — e.g. BTCUSDT)
+  tvScannerSymbol?: string; // TradingView scanner symbol for live price (forex/indices only — e.g. "FX:EURUSD")
   assetClass: AssetClass;
   category: string;          // sub-category within asset class, for grouped dropdown
   minLot: number;            // broker minimum lot size
@@ -67,6 +68,7 @@ function forex(
   id: string,
   label: string,
   tvSymbol: string,
+  tvScannerSymbol: string,
   category: string,
   pipValuePerLot: number,
   decimals: number,
@@ -77,6 +79,7 @@ function forex(
     id,
     label,
     tvSymbol,
+    tvScannerSymbol,
     assetClass: "forex",
     category,
     minLot: 0.01,
@@ -93,6 +96,7 @@ function index(
   id: string,
   label: string,
   tvSymbol: string,
+  tvScannerSymbol: string,
   category: string,
   pipValuePerLot: number = 1,
   pipSize: number = 1,
@@ -104,6 +108,7 @@ function index(
     id,
     label,
     tvSymbol,
+    tvScannerSymbol,
     assetClass: "indices",
     category,
     minLot,
@@ -148,61 +153,61 @@ export const SYMBOLS: SymbolSpec[] = [
   // ============================================================
   // FOREX — MAJORS (7)
   // ============================================================
-  forex("EURUSD", "EUR/USD", "FX:EURUSD", "Majors", 10, 5),
-  forex("GBPUSD", "GBP/USD", "FX:GBPUSD", "Majors", 10, 5),
-  forex("USDJPY", "USD/JPY", "FX:USDJPY", "Majors", 9.13, 3, 0.01, "Pip value varies with USDJPY rate. Approximate."),
-  forex("USDCHF", "USD/CHF", "FX:USDCHF", "Majors", 11.3, 5, 0.0001, "Pip value varies with USDCHF rate."),
-  forex("USDCAD", "USD/CAD", "FX:USDCAD", "Majors", 7.45, 5, 0.0001, "Pip value varies with USDCAD rate."),
-  forex("AUDUSD", "AUD/USD", "FX:AUDUSD", "Majors", 10, 5),
-  forex("NZDUSD", "NZD/USD", "FX:NZDUSD", "Majors", 10, 5),
+  forex("EURUSD", "EUR/USD", "FX:EURUSD", "FX:EURUSD", "Majors", 10, 5),
+  forex("GBPUSD", "GBP/USD", "FX:GBPUSD", "FX:GBPUSD", "Majors", 10, 5),
+  forex("USDJPY", "USD/JPY", "FX:USDJPY", "FX:USDJPY", "Majors", 9.13, 3, 0.01, "Pip value varies with USDJPY rate. Approximate."),
+  forex("USDCHF", "USD/CHF", "FX:USDCHF", "FX:USDCHF", "Majors", 11.3, 5, 0.0001, "Pip value varies with USDCHF rate."),
+  forex("USDCAD", "USD/CAD", "FX:USDCAD", "FX:USDCAD", "Majors", 7.45, 5, 0.0001, "Pip value varies with USDCAD rate."),
+  forex("AUDUSD", "AUD/USD", "FX:AUDUSD", "FX:AUDUSD", "Majors", 10, 5),
+  forex("NZDUSD", "NZD/USD", "FX:NZDUSD", "FX:NZDUSD", "Majors", 10, 5),
 
   // ============================================================
   // FOREX — EUR CROSSES (6)
   // ============================================================
-  forex("EURGBP", "EUR/GBP", "FX:EURGBP", "EUR Crosses", 12.7, 5),
-  forex("EURJPY", "EUR/JPY", "FX:EURJPY", "EUR Crosses", 6.55, 3, 0.01),
-  forex("EURCHF", "EUR/CHF", "FX:EURCHF", "EUR Crosses", 11.3, 5),
-  forex("EURAUD", "EUR/AUD", "FX:EURAUD", "EUR Crosses", 6.45, 5),
-  forex("EURCAD", "EUR/CAD", "FX:EURCAD", "EUR Crosses", 7.45, 5),
-  forex("EURNZD", "EUR/NZD", "FX:EURNZD", "EUR Crosses", 6.10, 5),
+  forex("EURGBP", "EUR/GBP", "FX:EURGBP", "FX:EURGBP", "EUR Crosses", 12.7, 5),
+  forex("EURJPY", "EUR/JPY", "FX:EURJPY", "FX:EURJPY", "EUR Crosses", 6.55, 3, 0.01),
+  forex("EURCHF", "EUR/CHF", "FX:EURCHF", "FX:EURCHF", "EUR Crosses", 11.3, 5),
+  forex("EURAUD", "EUR/AUD", "FX:EURAUD", "FX:EURAUD", "EUR Crosses", 6.45, 5),
+  forex("EURCAD", "EUR/CAD", "FX:EURCAD", "FX:EURCAD", "EUR Crosses", 7.45, 5),
+  forex("EURNZD", "EUR/NZD", "FX:EURNZD", "FX:EURNZD", "EUR Crosses", 6.10, 5),
 
   // ============================================================
   // FOREX — GBP CROSSES (5)
   // ============================================================
-  forex("GBPJPY", "GBP/JPY", "FX:GBPJPY", "GBP Crosses", 6.55, 3, 0.01),
-  forex("GBPCHF", "GBP/CHF", "FX:GBPCHF", "GBP Crosses", 11.3, 5),
-  forex("GBPAUD", "GBP/AUD", "FX:GBPAUD", "GBP Crosses", 6.45, 5),
-  forex("GBPCAD", "GBP/CAD", "FX:GBPCAD", "GBP Crosses", 7.45, 5),
-  forex("GBPNZD", "GBP/NZD", "FX:GBPNZD", "GBP Crosses", 6.10, 5),
+  forex("GBPJPY", "GBP/JPY", "FX:GBPJPY", "FX:GBPJPY", "GBP Crosses", 6.55, 3, 0.01),
+  forex("GBPCHF", "GBP/CHF", "FX:GBPCHF", "FX:GBPCHF", "GBP Crosses", 11.3, 5),
+  forex("GBPAUD", "GBP/AUD", "FX:GBPAUD", "FX:GBPAUD", "GBP Crosses", 6.45, 5),
+  forex("GBPCAD", "GBP/CAD", "FX:GBPCAD", "FX:GBPCAD", "GBP Crosses", 7.45, 5),
+  forex("GBPNZD", "GBP/NZD", "FX:GBPNZD", "FX:GBPNZD", "GBP Crosses", 6.10, 5),
 
   // ============================================================
   // FOREX — AUD CROSSES (4)
   // ============================================================
-  forex("AUDJPY", "AUD/JPY", "FX:AUDJPY", "AUD Crosses", 6.55, 3, 0.01),
-  forex("AUDCHF", "AUD/CHF", "FX:AUDCHF", "AUD Crosses", 11.3, 5),
-  forex("AUDCAD", "AUD/CAD", "FX:AUDCAD", "AUD Crosses", 7.45, 5),
-  forex("AUDNZD", "AUD/NZD", "FX:AUDNZD", "AUD Crosses", 6.10, 5),
+  forex("AUDJPY", "AUD/JPY", "FX:AUDJPY", "FX:AUDJPY", "AUD Crosses", 6.55, 3, 0.01),
+  forex("AUDCHF", "AUD/CHF", "FX:AUDCHF", "FX:AUDCHF", "AUD Crosses", 11.3, 5),
+  forex("AUDCAD", "AUD/CAD", "FX:AUDCAD", "FX:AUDCAD", "AUD Crosses", 7.45, 5),
+  forex("AUDNZD", "AUD/NZD", "FX:AUDNZD", "FX:AUDNZD", "AUD Crosses", 6.10, 5),
 
   // ============================================================
   // FOREX — NZD & OTHER CROSSES (5)
   // ============================================================
-  forex("NZDJPY", "NZD/JPY", "FX:NZDJPY", "NZD Crosses", 6.55, 3, 0.01),
-  forex("NZDCHF", "NZD/CHF", "FX:NZDCHF", "NZD Crosses", 11.3, 5),
-  forex("NZDCAD", "NZD/CAD", "FX:NZDCAD", "NZD Crosses", 7.45, 5),
-  forex("CHFJPY", "CHF/JPY", "FX:CHFJPY", "Other Crosses", 6.55, 3, 0.01),
-  forex("CADJPY", "CAD/JPY", "FX:CADJPY", "Other Crosses", 6.55, 3, 0.01),
+  forex("NZDJPY", "NZD/JPY", "FX:NZDJPY", "FX:NZDJPY", "NZD Crosses", 6.55, 3, 0.01),
+  forex("NZDCHF", "NZD/CHF", "FX:NZDCHF", "FX:NZDCHF", "NZD Crosses", 11.3, 5),
+  forex("NZDCAD", "NZD/CAD", "FX:NZDCAD", "FX:NZDCAD", "NZD Crosses", 7.45, 5),
+  forex("CHFJPY", "CHF/JPY", "FX:CHFJPY", "FX:CHFJPY", "Other Crosses", 6.55, 3, 0.01),
+  forex("CADJPY", "CAD/JPY", "FX:CADJPY", "FX:CADJPY", "Other Crosses", 6.55, 3, 0.01),
 
   // ============================================================
   // FOREX — EXOTICS (8)
   // ============================================================
-  forex("USDMXN", "USD/MXN", "FX:USDMXN", "Exotics", 5.0, 4, 0.0001, "Mexican Peso. High volatility."),
-  forex("USDZAR", "USD/ZAR", "FX:USDZAR", "Exotics", 5.5, 4, 0.0001, "South African Rand. High volatility."),
-  forex("USDTRY", "USD/TRY", "FX:USDTRY", "Exotics", 3.0, 4, 0.0001, "Turkish Lira. Very high volatility."),
-  forex("USDSGD", "USD/SGD", "FX:USDSGD", "Exotics", 7.45, 5),
-  forex("USDHKD", "USD/HKD", "FX:USDHKD", "Exotics", 1.28, 5),
-  forex("USDSEK", "USD/SEK", "FX:USDSEK", "Exotics", 9.7, 4, 0.0001),
-  forex("USDNOK", "USD/NOK", "FX:USDNOK", "Exotics", 9.5, 4, 0.0001),
-  forex("USDDKK", "USD/DKK", "FX:USDDKK", "Exotics", 14.6, 5),
+  forex("USDMXN", "USD/MXN", "FX:USDMXN", "FX:USDMXN", "Exotics", 5.0, 4, 0.0001, "Mexican Peso. High volatility."),
+  forex("USDZAR", "USD/ZAR", "FX:USDZAR", "FX:USDZAR", "Exotics", 5.5, 4, 0.0001, "South African Rand. High volatility."),
+  forex("USDTRY", "USD/TRY", "FX:USDTRY", "FX:USDTRY", "Exotics", 3.0, 4, 0.0001, "Turkish Lira. Very high volatility."),
+  forex("USDSGD", "USD/SGD", "FX:USDSGD", "OANDA:USDSGD", "Exotics", 7.45, 5),
+  forex("USDHKD", "USD/HKD", "FX:USDHKD", "FX:USDHKD", "Exotics", 1.28, 5),
+  forex("USDSEK", "USD/SEK", "FX:USDSEK", "FX:USDSEK", "Exotics", 9.7, 4, 0.0001),
+  forex("USDNOK", "USD/NOK", "FX:USDNOK", "FX:USDNOK", "Exotics", 9.5, 4, 0.0001),
+  forex("USDDKK", "USD/DKK", "FX:USDDKK", "FX:USDDKK", "Exotics", 14.6, 5),
 
   // ============================================================
   // SYNTHETIC — BOOM & CRASH (6)
@@ -305,36 +310,36 @@ export const SYMBOLS: SymbolSpec[] = [
   // ============================================================
   // INDICES — US (4)
   // ============================================================
-  index("US30", "US30 (Dow Jones)", "TVC:US30", "US Indices", 1, 1, 1, 0.1),
-  index("NAS100", "NAS100 (Nasdaq 100)", "TVC:NAS100", "US Indices", 1, 1, 1, 0.1),
-  index("SPX500", "S&P 500", "TVC:SPX", "US Indices", 1, 0.1, 2, 0.1),
-  index("US2000", "Russell 2000", "TVC:RUT", "US Indices", 1, 1, 1, 0.1,
+  index("US30", "US30 (Dow Jones)", "TVC:US30", "DJ:DJI", "US Indices", 1, 1, 1, 0.1),
+  index("NAS100", "NAS100 (Nasdaq 100)", "TVC:NAS100", "NASDAQ:NDX", "US Indices", 1, 1, 1, 0.1),
+  index("SPX500", "S&P 500", "TVC:SPX", "SP:SPX", "US Indices", 1, 0.1, 2, 0.1),
+  index("US2000", "Russell 2000", "TVC:RUT", "TVC:RUT", "US Indices", 1, 1, 1, 0.1,
     "US small-cap index."),
 
   // ============================================================
   // INDICES — EUROPE (7)
   // ============================================================
-  index("GER40", "GER40 (DAX)", "TVC:DAX", "Europe Indices", 1, 0.1, 2, 0.1),
-  index("UK100", "UK100 (FTSE)", "TVC:UKX", "Europe Indices", 1, 0.1, 2, 0.1),
-  index("FRA40", "FRA40 (CAC 40)", "TVC:CAC", "Europe Indices", 1, 0.1, 2, 0.1),
-  index("ESP35", "ESP35 (IBEX 35)", "TVC:IBEX35", "Europe Indices", 1, 1, 1, 0.1),
-  index("ITA40", "ITA40 (FTSE MIB)", "TVC:FTSEMIB", "Europe Indices", 1, 1, 1, 0.1),
-  index("NETH25", "NETH25 (AEX)", "TVC:AEX", "Europe Indices", 1, 1, 1, 0.1),
-  index("SWISS20", "SWISS20 (SMI)", "TVC:SMI", "Europe Indices", 1, 1, 1, 0.1),
+  index("GER40", "GER40 (DAX)", "TVC:DAX", "XETR:DAX", "Europe Indices", 1, 0.1, 2, 0.1),
+  index("UK100", "UK100 (FTSE)", "TVC:UKX", "TVC:UKX", "Europe Indices", 1, 0.1, 2, 0.1),
+  index("FRA40", "FRA40 (CAC 40)", "TVC:CAC", "EURONEXT:PX1", "Europe Indices", 1, 0.1, 2, 0.1),
+  index("ESP35", "ESP35 (IBEX 35)", "TVC:IBEX35", "TVC:IBEX35", "Europe Indices", 1, 1, 1, 0.1),
+  index("ITA40", "ITA40 (FTSE MIB)", "TVC:FTSEMIB", "MIL:FTSEMIB", "Europe Indices", 1, 1, 1, 0.1),
+  index("NETH25", "NETH25 (AEX)", "TVC:AEX", "TVC:AEX", "Europe Indices", 1, 1, 1, 0.1),
+  index("SWISS20", "SWISS20 (SMI)", "TVC:SMI", "SIX:SMI", "Europe Indices", 1, 1, 1, 0.1),
 
   // ============================================================
   // INDICES — ASIA-PACIFIC (4)
   // ============================================================
-  index("JPN225", "JPN225 (Nikkei)", "TVC:NI225", "Asia Indices", 1, 1, 1, 0.1),
-  index("HKG50", "HKG50 (Hang Seng)", "TVC:HSI", "Asia Indices", 1, 1, 1, 0.1),
-  index("AUS200", "AUS200 (ASX)", "TVC:ASX200", "Asia Indices", 1, 1, 1, 0.1),
-  index("KOSPI200", "KOSPI 200", "TVC:KS200", "Asia Indices", 1, 1, 1, 0.1,
+  index("JPN225", "JPN225 (Nikkei)", "TVC:NI225", "TVC:NI225", "Asia Indices", 1, 1, 1, 0.1),
+  index("HKG50", "HKG50 (Hang Seng)", "TVC:HSI", "TVC:HSI", "Asia Indices", 1, 1, 1, 0.1),
+  index("AUS200", "AUS200 (ASX)", "TVC:ASX200", "ASX:AXJO", "Asia Indices", 1, 1, 1, 0.1),
+  index("KOSPI200", "KOSPI 200", "TVC:KS200", "TVC:KS200", "Asia Indices", 1, 1, 1, 0.1,
     "South Korea index."),
 
   // ============================================================
   // INDICES — VOLATILITY INDEX (1)
   // ============================================================
-  index("VIX", "CBOE Volatility Index (VIX)", "TVC:VIX", "Volatility Index", 1, 0.01, 2, 0.1,
+  index("VIX", "CBOE Volatility Index (VIX)", "TVC:VIX", "TVC:VIX", "Volatility Index", 1, 0.01, 2, 0.1,
     "Fear gauge — measures S&P 500 implied volatility."),
 
   // ============================================================
