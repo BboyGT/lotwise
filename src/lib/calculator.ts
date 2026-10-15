@@ -1,7 +1,7 @@
 // Calculator engine for trading position sizing
 // Pure functions, no side effects. Easy to unit-test.
 
-import { SymbolSpec } from "./symbols";
+import { SymbolSpec } from "./symbols-v3";
 
 export interface CalcInput {
   symbol: SymbolSpec;
