@@ -520,7 +520,7 @@ export default function Home() {
                 <CircleDot className="h-3 w-3 text-amber-400" />
                 Symbol
               </CardTitle>
-              <CardDescription className="text-[10px] font-mono uppercase tracking-wider text-slate-600 mt-1">
+              <CardDescription className="text-[10px] font-mono uppercase tracking-wider text-slate-600 mt-1" suppressHydrationWarning>
                 Type to search · {symbolList.length} pairs
               </CardDescription>
             </CardHeader>
