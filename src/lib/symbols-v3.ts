@@ -427,6 +427,100 @@ export const SYMBOLS: SymbolSpec[] = [
     "Sei. 1 lot = 1 SEI."),
   crypto("BNBUSD", "BNB/USD", "BINANCE:BNBUSDT", "BNBUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
     "BNB. 1 lot = 1 BNB."),
+  crypto("DYDXUSD", "DYDX/USD", "BINANCE:DYDXUSDT", "DYDXUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
+    "dYdX. 1 lot = 1 DYDX."),
+  crypto("CRVUSD", "CRV/USD", "BINANCE:CRVUSDT", "CRVUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
+    "Curve DAO. 1 lot = 1 CRV."),
+  crypto("SUSHIUSD", "SUSHI/USD", "BINANCE:SUSHIUSDT", "SUSHIUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
+    "SushiSwap. 1 lot = 1 SUSHI."),
+  crypto("YFIUSD", "YFI/USD", "BINANCE:YFIUSDT", "YFIUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
+    "Yearn Finance. 1 lot = 1 YFI."),
+  crypto("COMPUSD", "COMP/USD", "BINANCE:COMPUSDT", "COMPUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
+    "Compound. 1 lot = 1 COMP."),
+  crypto("SNXUSD", "SNX/USD", "BINANCE:SNXUSDT", "SNXUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
+    "Synthetix. 1 lot = 1 SNX."),
+  crypto("1INCHUSD", "1INCH/USD", "BINANCE:1INCHUSDT", "1INCHUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
+    "1inch. 1 lot = 1 1INCH."),
+
+  // ============================================================
+  // CRYPTO — LAYER 1 ADDITIONAL (8)
+  // ============================================================
+  crypto("TRXUSD", "TRX/USD", "BINANCE:TRXUSDT", "TRXUSDT", "Layer 1 Additional", 0.0001, 0.0001, 4,
+    "TRON. 1 lot = 1 TRX."),
+  crypto("ETCUSDT", "ETC/USD", "BINANCE:ETCUSDT", "ETCUSDT", "Layer 1 Additional", 0.01, 0.01, 2,
+    "Ethereum Classic. 1 lot = 1 ETC."),
+  crypto("XLMUSD", "XLM/USD", "BINANCE:XLMUSDT", "XLMUSDT", "Layer 1 Additional", 0.0001, 0.0001, 4,
+    "Stellar. 1 lot = 1 XLM."),
+  crypto("VETUSD", "VET/USD", "BINANCE:VETUSDT", "VETUSDT", "Layer 1 Additional", 0.0001, 0.0001, 4,
+    "VeChain. 1 lot = 1 VET."),
+  crypto("ALGOUSD", "ALGO/USD", "BINANCE:ALGOUSDT", "ALGOUSDT", "Layer 1 Additional", 0.001, 0.001, 4,
+    "Algorand. 1 lot = 1 ALGO."),
+  crypto("ICPUSD", "ICP/USD", "BINANCE:ICPUSDT", "ICPUSDT", "Layer 1 Additional", 0.01, 0.01, 2,
+    "Internet Computer. 1 lot = 1 ICP."),
+  crypto("EGLDUSD", "EGLD/USD", "BINANCE:EGLDUSDT", "EGLDUSDT", "Layer 1 Additional", 0.01, 0.01, 2,
+    "MultiversX. 1 lot = 1 EGLD."),
+  crypto("STXUSD", "STX/USD", "BINANCE:STXUSDT", "STXUSDT", "Layer 1 Additional", 0.001, 0.001, 4,
+    "Stacks. 1 lot = 1 STX."),
+
+  // ============================================================
+  // CRYPTO — GAMING & NFT (7)
+  // ============================================================
+  crypto("SANDUSD", "SAND/USD", "BINANCE:SANDUSDT", "SANDUSDT", "Gaming & NFT", 0.001, 0.001, 4,
+    "The Sandbox. 1 lot = 1 SAND."),
+  crypto("MANAUSD", "MANA/USD", "BINANCE:MANAUSDT", "MANAUSDT", "Gaming & NFT", 0.001, 0.001, 4,
+    "Decentraland. 1 lot = 1 MANA."),
+  crypto("AXSUSD", "AXS/USD", "BINANCE:AXSUSDT", "AXSUSDT", "Gaming & NFT", 0.01, 0.01, 2,
+    "Axie Infinity. 1 lot = 1 AXS."),
+  crypto("GALAUSD", "GALA/USD", "BINANCE:GALAUSDT", "GALAUSDT", "Gaming & NFT", 0.0001, 0.0001, 4,
+    "Gala Games. 1 lot = 1 GALA."),
+  crypto("THETAUSD", "THETA/USD", "BINANCE:THETAUSDT", "THETAUSDT", "Gaming & NFT", 0.001, 0.001, 4,
+    "Theta Network. 1 lot = 1 THETA."),
+  crypto("CHZUSD", "CHZ/USD", "BINANCE:CHZUSDT", "CHZUSDT", "Gaming & NFT", 0.0001, 0.0001, 4,
+    "Chiliz. 1 lot = 1 CHZ."),
+  crypto("ENJUSD", "ENJ/USD", "BINANCE:ENJUSDT", "ENJUSDT", "Gaming & NFT", 0.0001, 0.0001, 4,
+    "Enjin Coin. 1 lot = 1 ENJ."),
+
+  // ============================================================
+  // CRYPTO — MEME COINS (5)
+  // ============================================================
+  crypto("DOGEUSD", "DOGE/USD", "BINANCE:DOGEUSDT", "DOGEUSDT", "Meme Coins", 0.0001, 0.0001, 5,
+    "Dogecoin. 1 lot = 1 DOGE."),
+  crypto("SHIBUSD", "SHIB/USD", "BINANCE:SHIBUSDT", "SHIBUSDT", "Meme Coins", 0.0000001, 0.0000001, 8,
+    "Shiba Inu. 1 lot = 1 SHIB."),
+  crypto("PEPEUSD", "PEPE/USD", "BINANCE:PEPEUSDT", "PEPEUSDT", "Meme Coins", 0.0000001, 0.0000001, 8,
+    "Pepe. 1 lot = 1 PEPE."),
+  crypto("BONKUSD", "BONK/USD", "BINANCE:BONKUSDT", "BONKUSDT", "Meme Coins", 0.0000001, 0.0000001, 8,
+    "Bonk. 1 lot = 1 BONK."),
+  crypto("WIFUSD", "WIF/USD", "BINANCE:WIFUSDT", "WIFUSDT", "Meme Coins", 0.0001, 0.0001, 4,
+    "dogwifhat. 1 lot = 1 WIF."),
+
+  // ============================================================
+  // CRYPTO — AI & INFRASTRUCTURE (5)
+  // ============================================================
+  crypto("RNDRUSD", "RNDR/USD", "BINANCE:RNDRUSDT", "RNDRUSDT", "AI & Infrastructure", 0.01, 0.01, 2,
+    "Render. 1 lot = 1 RNDR."),
+  crypto("GRTUSD", "GRT/USD", "BINANCE:GRTUSDT", "GRTUSDT", "AI & Infrastructure", 0.001, 0.001, 4,
+    "The Graph. 1 lot = 1 GRT."),
+  crypto("LDOUSD", "LDO/USD", "BINANCE:LDOUSDT", "LDOUSDT", "AI & Infrastructure", 0.001, 0.001, 4,
+    "Lido DAO. 1 lot = 1 LDO."),
+  crypto("ORDIUSD", "ORDI/USD", "BINANCE:ORDIUSDT", "ORDIUSDT", "AI & Infrastructure", 0.001, 0.001, 4,
+    "ORDI (BRC-20). 1 lot = 1 ORDI."),
+  crypto("WLDUSD", "WLD/USD", "BINANCE:WLDUSDT", "WLDUSDT", "AI & Infrastructure", 0.001, 0.001, 4,
+    "Worldcoin. 1 lot = 1 WLD."),
+
+  // ============================================================
+  // CRYPTO — ADDITIONAL (5)
+  // ============================================================
+  crypto("FTMUSD", "FTM/USD", "BINANCE:FTMUSDT", "FTMUSDT", "Additional", 0.001, 0.001, 4,
+    "Fantom. 1 lot = 1 FTM."),
+  crypto("ZILUSD", "ZIL/USD", "BINANCE:ZILUSDT", "ZILUSDT", "Additional", 0.0001, 0.0001, 4,
+    "Zilliqa. 1 lot = 1 ZIL."),
+  crypto("FLOWUSD", "FLOW/USD", "BINANCE:FLOWUSDT", "FLOWUSDT", "Additional", 0.001, 0.001, 4,
+    "Flow. 1 lot = 1 FLOW."),
+  crypto("IOTAUSD", "IOTA/USD", "BINANCE:IOTAUSDT", "IOTAUSDT", "Additional", 0.0001, 0.0001, 4,
+    "IOTA. 1 lot = 1 IOTA."),
+  crypto("JUPUSD", "JUP/USD", "BINANCE:JUPUSDT", "JUPUSDT", "Additional", 0.001, 0.001, 4,
+    "Jupiter. 1 lot = 1 JUP."),
 ];
 
 export function symbolsByClass(assetClass: AssetClass): SymbolSpec[] {

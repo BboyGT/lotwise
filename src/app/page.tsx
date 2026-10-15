@@ -9,7 +9,7 @@ import {
   getSymbol,
   symbolsByClass,
   groupedSymbolsByClass,
-} from "@/lib/symbols-v2";
+} from "@/lib/symbols-v3";
 import {
   calculateTrade,
   currencySymbol,

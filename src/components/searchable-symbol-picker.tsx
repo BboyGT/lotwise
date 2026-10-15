@@ -17,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { SymbolSpec, groupedSymbolsByClass, AssetClass } from "@/lib/symbols-v2";
+import { SymbolSpec, groupedSymbolsByClass, AssetClass } from "@/lib/symbols-v3";
 
 interface SearchableSymbolPickerProps {
   assetClass: AssetClass;
