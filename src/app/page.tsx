@@ -475,7 +475,7 @@ export default function Home() {
               onValueChange={(v) => setDisplayCurrency(v as CurrencyCode)}
             >
               <SelectTrigger
-                className="w-[88px] sm:w-[80px] h-8 bg-white/5 border-white/10 font-mono text-xs shrink-0"
+                className="w-[88px] h-8 bg-white/5 border-white/10 font-mono text-xs shrink-0"
                 suppressHydrationWarning
               >
                 <SelectValue />
