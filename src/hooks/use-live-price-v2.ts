@@ -35,9 +35,13 @@ const FALLBACK_BASE: Record<string, number> = {
   // Boom / Crash
   BOOM300N: 8500,
   BOOM500: 9000,
+  BOOM600: 9200,
+  BOOM900: 9400,
   BOOM1000: 9500,
   CRASH300N: 8500,
   CRASH500: 9000,
+  CRASH600: 9200,
+  CRASH900: 9400,
   CRASH1000: 9500,
   // Volatility
   R_10: 6510,
@@ -47,9 +51,12 @@ const FALLBACK_BASE: Record<string, number> = {
   R_100: 1348.5,
   // 1s Volatility
   "1HZ10V": 7320,
+  "1HZ15V": 4500,
   "1HZ25V": 1845,
+  "1HZ30V": 3200,
   "1HZ50V": 234,
   "1HZ75V": 412350,
+  "1HZ90V": 8900,
   "1HZ100V": 1567,
   // Jump
   JD10: 7800,
@@ -67,6 +74,10 @@ const FALLBACK_BASE: Record<string, number> = {
   stpidx0p7: 1000,
   stpidx0p8: 1000,
   stpidx0p9: 1000,
+  stpidx200: 1000,
+  stpidx300: 1000,
+  stpidx400: 1000,
+  stpidx500: 1000,
   // Bull / Bear / Z / Smart
   RDBULL: 9800,
   RDBEAR: 9800,

@@ -32,13 +32,14 @@ interface UseDerivCandlesResult {
 
 // Fallback baseline prices for synthetic symbols (used by simulator only)
 const FALLBACK_BASE: Record<string, number> = {
-  BOOM300N: 8500, BOOM500: 9000, BOOM1000: 9500,
-  CRASH300N: 8500, CRASH500: 9000, CRASH1000: 9500,
+  BOOM300N: 8500, BOOM500: 9000, BOOM600: 9200, BOOM900: 9400, BOOM1000: 9500,
+  CRASH300N: 8500, CRASH500: 9000, CRASH600: 9200, CRASH900: 9400, CRASH1000: 9500,
   R_10: 6510, R_25: 1520, R_50: 198, R_75: 385460.5, R_100: 1348.5,
-  "1HZ10V": 7320, "1HZ25V": 1845, "1HZ50V": 234, "1HZ75V": 412350, "1HZ100V": 1567,
+  "1HZ10V": 7320, "1HZ15V": 4500, "1HZ25V": 1845, "1HZ30V": 3200, "1HZ50V": 234, "1HZ75V": 412350, "1HZ90V": 8900, "1HZ100V": 1567,
   JD10: 7800, JD25: 1760, JD50: 245, JD75: 412000, JD100: 1420,
   stpidx0p1: 1000, stpidx0p2: 1000, stpidx0p3: 1000, stpidx0p4: 1000,
   stpidx0p5: 1000, stpidx0p6: 1000, stpidx0p7: 1000, stpidx0p8: 1000, stpidx0p9: 1000,
+  stpidx200: 1000, stpidx300: 1000, stpidx400: 1000, stpidx500: 1000,
   RDBULL: 9800, RDBEAR: 9800, ZVOLATILITY75: 385000,
   smartidx5R: 5000, smartidx10R: 5000, smartidx20R: 5000, smartidx40R: 5000,
 };

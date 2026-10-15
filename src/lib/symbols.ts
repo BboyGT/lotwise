@@ -210,18 +210,26 @@ export const SYMBOLS: SymbolSpec[] = [
   forex("USDDKK", "USD/DKK", "FX:USDDKK", "FX:USDDKK", "Exotics", 14.6, 5),
 
   // ============================================================
-  // SYNTHETIC — BOOM & CRASH (6)
+  // SYNTHETIC — BOOM & CRASH (10)
   // ============================================================
   synth("BOOM300", "Boom 300", "DERIV:BOOM_300", "BOOM300N", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bullish spike per 300 ticks (most frequent)."),
   synth("BOOM500", "Boom 500", "DERIV:BOOM_500", "BOOM500", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bullish spike per 500 ticks."),
+  synth("BOOM600", "Boom 600", "DERIV:BOOM_600", "BOOM600", "Boom & Crash", 0.2,
+    "Deriv. Min lot 0.20. Avg 1 bullish spike per 600 ticks."),
+  synth("BOOM900", "Boom 900", "DERIV:BOOM_900", "BOOM900", "Boom & Crash", 0.2,
+    "Deriv. Min lot 0.20. Avg 1 bullish spike per 900 ticks."),
   synth("BOOM1000", "Boom 1000", "DERIV:BOOM_1000", "BOOM1000", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bullish spike per 1000 ticks."),
   synth("CRASH300", "Crash 300", "DERIV:CRASH_300", "CRASH300N", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bearish drop per 300 ticks (most frequent)."),
   synth("CRASH500", "Crash 500", "DERIV:CRASH_500", "CRASH500", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bearish drop per 500 ticks."),
+  synth("CRASH600", "Crash 600", "DERIV:CRASH_600", "CRASH600", "Boom & Crash", 0.2,
+    "Deriv. Min lot 0.20. Avg 1 bearish drop per 600 ticks."),
+  synth("CRASH900", "Crash 900", "DERIV:CRASH_900", "CRASH900", "Boom & Crash", 0.2,
+    "Deriv. Min lot 0.20. Avg 1 bearish drop per 900 ticks."),
   synth("CRASH1000", "Crash 1000", "DERIV:CRASH_1000", "CRASH1000", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bearish drop per 1000 ticks."),
 
@@ -240,16 +248,22 @@ export const SYMBOLS: SymbolSpec[] = [
     "Deriv. 100% volatility. Highest volatility."),
 
   // ============================================================
-  // SYNTHETIC — VOLATILITY 1s INDICES (5)
+  // SYNTHETIC — VOLATILITY 1s INDICES (8)
   // ============================================================
   synth("VOL10S", "Volatility 10 (1s) Index", "DERIV:1HZ_10V", "1HZ10V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
+  synth("VOL15S", "Volatility 15 (1s) Index", "DERIV:1HZ_15V", "1HZ15V", "Volatility 1s", 0.01,
+    "Deriv. Generates 1 tick per second. 15% volatility."),
   synth("VOL25S", "Volatility 25 (1s) Index", "DERIV:1HZ_25V", "1HZ25V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
+  synth("VOL30S", "Volatility 30 (1s) Index", "DERIV:1HZ_30V", "1HZ30V", "Volatility 1s", 0.01,
+    "Deriv. Generates 1 tick per second. 30% volatility."),
   synth("VOL50S", "Volatility 50 (1s) Index", "DERIV:1HZ_50V", "1HZ50V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
   synth("VOL75S", "Volatility 75 (1s) Index", "DERIV:1HZ_75V", "1HZ75V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
+  synth("VOL90S", "Volatility 90 (1s) Index", "DERIV:1HZ_90V", "1HZ90V", "Volatility 1s", 0.01,
+    "Deriv. Generates 1 tick per second. 90% volatility."),
   synth("VOL100S", "Volatility 100 (1s) Index", "DERIV:1HZ_100V", "1HZ100V", "Volatility 1s", 0.01,
     "Deriv. Generates 1 tick per second."),
 
@@ -288,6 +302,14 @@ export const SYMBOLS: SymbolSpec[] = [
     "Deriv. Step size 0.8."),
   synth("STEP09", "Step Index (0.9)", "DERIV:STPIDX_0P9", "stpidx0p9", "Step Indices", 0.1,
     "Deriv. Step size 0.9."),
+  synth("STEP200", "Step Index (200)", "DERIV:STPIDX_200", "stpidx200", "Step Indices", 0.1,
+    "Deriv. Step size 200."),
+  synth("STEP300", "Step Index (300)", "DERIV:STPIDX_300", "stpidx300", "Step Indices", 0.1,
+    "Deriv. Step size 300."),
+  synth("STEP400", "Step Index (400)", "DERIV:STPIDX_400", "stpidx400", "Step Indices", 0.1,
+    "Deriv. Step size 400."),
+  synth("STEP500", "Step Index (500)", "DERIV:STPIDX_500", "stpidx500", "Step Indices", 0.1,
+    "Deriv. Step size 500."),
 
   // ============================================================
   // SYNTHETIC — BULL, BEAR, Z & SMART INDICES
