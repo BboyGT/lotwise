@@ -9,7 +9,7 @@ import {
   getSymbol,
   symbolsByClass,
   groupedSymbolsByClass,
-} from "@/lib/symbols";
+} from "@/lib/symbols-v2";
 import {
   calculateTrade,
   currencySymbol,
@@ -18,7 +18,7 @@ import {
   formatPrice,
   FX_RATES,
 } from "@/lib/calculator";
-import { useLivePrice } from "@/hooks/use-live-price-v2";
+import { useLivePrice } from "@/hooks/use-live-price-v3";
 import { useAlarmManager } from "@/hooks/use-alarm-manager";
 import { usePWA } from "@/hooks/use-pwa";
 import { primeAudioContext } from "@/lib/sound-engine";

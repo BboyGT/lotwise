@@ -13,7 +13,7 @@ import {
   type HistogramData,
   type Time,
 } from "lightweight-charts";
-import { useDerivCandles, type Candle } from "@/hooks/use-deriv-candles";
+import { useDerivCandles, type Candle } from "@/hooks/use-deriv-candles-v2";
 
 interface SyntheticCandleChartProps {
   /** Deriv API symbol (e.g. "R_75", "BOOM500") */
