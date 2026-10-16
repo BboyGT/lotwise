@@ -2,7 +2,7 @@
 bun install v1.3.14 (0d9b296a)
 No packages! Deleted empty lockfile
 
-[5.00ms] done
+[1.00ms] done
 [price-relay] Running bun run dev...
 $ bun --hot index.ts
 [relay] Price relay server running on http://localhost:3001
@@ -23,3 +23,17 @@ $ bun --hot index.ts
 [relay] WS error
 [relay] WS disconnected, will reconnect in 5s
 [relay] Connecting to Deriv WS...
+[relay] WS error
+[relay] WS disconnected, will reconnect in 5s
+[relay] Connecting to Deriv WS...
+[relay] WS error
+[relay] WS disconnected, will reconnect in 5s
+[relay] Connecting to Deriv WS...
+[relay] WS error
+[relay] WS disconnected, will reconnect in 5s
+[relay] Connecting to Deriv WS...
+[relay] WS error
+[relay] WS disconnected, will reconnect in 5s
+[relay] Connecting to Deriv WS...
+[relay] WS error
+[relay] WS disconnected, will reconnect in 5s
