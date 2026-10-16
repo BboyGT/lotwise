@@ -456,3 +456,24 @@ input[type="number"] {
   80% { opacity: 1; }
   100% { top: 100%; opacity: 0; }
 }
+
+/* Hide native scrollbar — we use our custom scrollbar component */
+html {
+  scrollbar-width: none; /* Firefox */
+}
+html::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  display: none; /* Chrome, Safari, Edge */
+}
+
+/* But keep inner scrollbars visible (dropdowns, history) */
+.rm-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 184, 0, 0.5) #080c14;
+}
+.rm-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  display: block;
+}
