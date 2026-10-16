@@ -448,3 +448,11 @@ input[type="number"] {
   background: linear-gradient(180deg, rgba(255, 213, 107, 0.8), rgba(255, 184, 0, 0.6));
   box-shadow: 0 0 8px rgba(255, 184, 0, 0.6);
 }
+
+/* Light streak dot animation for custom scrollbar */
+@keyframes rm-streak-move {
+  0% { top: 0; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}

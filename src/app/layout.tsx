@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals-v3.css";
+import "./globals-v4.css";
 import { Toaster } from "@/components/ui/toaster";
+import { CustomScrollbar } from "@/components/custom-scrollbar";
 
 /**
  * Inline script that updates the CSS variable --scroll-percent on scroll.
@@ -87,6 +88,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <ScrollProgressScript />
+        <CustomScrollbar />
         {children}
         <Toaster />
       </body>
