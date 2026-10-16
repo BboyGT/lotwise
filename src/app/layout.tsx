@@ -1,7 +1,22 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals-v2.css";
+import "./globals-v3.css";
 import { Toaster } from "@/components/ui/toaster";
+
+/**
+ * Inline script that updates the CSS variable --scroll-percent on scroll.
+ * This drives the "depth gauge" effect on the scrollbar track.
+ * Must run before hydration to avoid layout shift.
+ */
+function ScrollProgressScript() {
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `(function(){var t=false;function u(){var s=window.scrollY||document.documentElement.scrollTop;var h=document.documentElement.scrollHeight-document.documentElement.clientHeight;var p=h>0?Math.round(s/h*100):0;document.documentElement.style.setProperty('--scroll-percent',p+'%');t=false}function r(){if(!t){t=true;requestAnimationFrame(u)}}window.addEventListener('scroll',r,{passive:true});window.addEventListener('resize',r,{passive:true});u()})();`,
+      }}
+    />
+  );
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,6 +86,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
+        <ScrollProgressScript />
         {children}
         <Toaster />
       </body>
