@@ -345,6 +345,7 @@ export default function Home() {
         symbolLabel: t.symbolLabel,
         binanceSymbol: symbol.binanceSymbol,
         tvScannerSymbol: symbol.tvScannerSymbol,
+        derivSymbol: symbol.derivSymbol,
         entry: t.entry,
         stopLoss: t.stopLoss,
         takeProfit: t.takeProfit,
@@ -1494,6 +1495,7 @@ export default function Home() {
         currentPrice={livePrice.price}
         currentSymbolDecimals={symbol.decimals}
         tradeLevels={tradeLevelsForAlarm}
+        currentDerivSymbol={symbol.derivSymbol}
         onOutcome={(symId, outcome, price) => {
           // Auto-update the most recent pending trade for this symbol
           const pendingTrade = history.find(

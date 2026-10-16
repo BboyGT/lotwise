@@ -1,0 +1,210 @@
+/**
+ * Lotwise Price Relay — WebSocket-to-REST bridge for Deriv synthetic indices.
+ *
+ * Connects to Deriv's WebSocket API, subscribes to tick streams for all
+ * synthetic symbols, and exposes the latest prices via a simple REST endpoint
+ * that the service worker can poll (since SW can't do WebSocket).
+ *
+ * Endpoints:
+ *   GET  /price/:symbol    → { symbol, price, timestamp }
+ *   GET  /prices           → { symbols: [{ symbol, price, timestamp }] }
+ *   GET  /health           → { status: "ok", connected: true/false, symbols: N }
+ *   POST /subscribe       → { symbol: "R_75" } → subscribes to a new symbol
+ *
+ * Runs on port 3001.
+ */
+
+import { serve } from "bun";
+
+const DERIV_WS_URL = "wss://ws.derivws.com/websockets/v3?app_id=1089";
+const PORT = 3001;
+
+// ---- State ----
+let ws: WebSocket | null = null;
+let isConnected = false;
+const priceCache = new Map<string, { price: number; timestamp: number }>();
+const subscribedSymbols = new Set<string>();
+const pendingSubscriptions: string[] = [];
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+// All Deriv synthetic symbols to monitor
+const ALL_SYNTHETIC_SYMBOLS = [
+  // Boom & Crash
+  "BOOM300N", "BOOM500", "BOOM600", "BOOM900", "BOOM1000",
+  "CRASH300N", "CRASH500", "CRASH600", "CRASH900", "CRASH1000",
+  // Volatility
+  "R_10", "R_25", "R_50", "R_75", "R_100",
+  // Volatility 1s
+  "1HZ10V", "1HZ15V", "1HZ25V", "1HZ30V", "1HZ50V", "1HZ75V", "1HZ90V", "1HZ100V",
+  // Jump
+  "JD10", "JD25", "JD50", "JD75", "JD100",
+  // Step
+  "stpidx0p1", "stpidx0p2", "stpidx0p3", "stpidx0p4", "stpidx0p5",
+  "stpidx0p6", "stpidx0p7", "stpidx0p8", "stpidx0p9",
+  "stpidx200", "stpidx300", "stpidx400", "stpidx500",
+  // Bull/Bear/Smart
+  "RDBULL", "RDBEAR", "ZVOLATILITY75",
+  "smartidx5R", "smartidx10R", "smartidx20R", "smartidx40R",
+];
+
+// ---- WebSocket connection ----
+function connect() {
+  console.log("[relay] Connecting to Deriv WS...");
+  try {
+    ws = new WebSocket(DERIV_WS_URL);
+  } catch (err) {
+    console.error("[relay] WebSocket constructor failed:", err);
+    scheduleReconnect();
+    return;
+  }
+
+  ws.onopen = () => {
+    console.log("[relay] Connected to Deriv WS");
+    isConnected = true;
+    // Subscribe to all symbols
+    for (const symbol of ALL_SYNTHETIC_SYMBOLS) {
+      if (!subscribedSymbols.has(symbol)) {
+        subscribeToSymbol(symbol);
+      }
+    }
+    // Process any pending subscriptions
+    while (pendingSubscriptions.length > 0) {
+      const sym = pendingSubscriptions.shift()!;
+      subscribeToSymbol(sym);
+    }
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data as string);
+      if (data.msg_type === "tick" && data.tick) {
+        const symbol = data.tick.symbol;
+        const price = data.tick.quote;
+        priceCache.set(symbol, { price, timestamp: Date.now() });
+      } else if (data.error) {
+        console.error(`[relay] Deriv error for ${data.error?.code}: ${data.error?.message}`);
+      }
+    } catch {
+      // ignore malformed messages
+    }
+  };
+
+  ws.onerror = (event) => {
+    console.error("[relay] WS error");
+    isConnected = false;
+  };
+
+  ws.onclose = () => {
+    console.log("[relay] WS disconnected, will reconnect in 5s");
+    isConnected = false;
+    ws = null;
+    scheduleReconnect();
+  };
+}
+
+function subscribeToSymbol(symbol: string) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    pendingSubscriptions.push(symbol);
+    return;
+  }
+  ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
+  subscribedSymbols.add(symbol);
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    connect();
+  }, 5000);
+}
+
+// ---- HTTP Server ----
+const server = serve({
+  port: PORT,
+  async fetch(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+    const path = url.pathname;
+
+    // CORS headers
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Content-Type": "application/json",
+    };
+
+    // Handle CORS preflight
+    if (req.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    // GET /health
+    if (path === "/health") {
+      return Response.json({
+        status: "ok",
+        connected: isConnected,
+        symbolsMonitored: subscribedSymbols.size,
+        pricesCached: priceCache.size,
+        uptime: process.uptime?.() ?? 0,
+      }, { headers: corsHeaders });
+    }
+
+    // GET /prices — all cached prices
+    if (path === "/prices") {
+      const prices: Array<{ symbol: string; price: number; timestamp: number }> = [];
+      for (const [symbol, data] of priceCache.entries()) {
+        prices.push({ symbol, ...data });
+      }
+      return Response.json({ symbols: prices, count: prices.length }, { headers: corsHeaders });
+    }
+
+    // GET /price/:symbol — single price
+    const priceMatch = path.match(/^\/price\/(.+)$/);
+    if (priceMatch) {
+      const symbol = priceMatch[1].toUpperCase();
+      const data = priceCache.get(symbol);
+      if (data) {
+        return Response.json({ symbol, price: data.price, timestamp: data.timestamp }, { headers: corsHeaders });
+      }
+      return Response.json({ error: "Symbol not found or no data yet", symbol }, { status: 404, headers: corsHeaders });
+    }
+
+    // POST /subscribe — subscribe to a new symbol
+    if (path === "/subscribe" && req.method === "POST") {
+      try {
+        const body = await req.json();
+        const symbol = body.symbol?.toUpperCase();
+        if (symbol) {
+          subscribeToSymbol(symbol);
+          return Response.json({ status: "subscribed", symbol }, { headers: corsHeaders });
+        }
+      } catch {}
+      return Response.json({ error: "Invalid request body" }, { status: 400, headers: corsHeaders });
+    }
+
+    // Default
+    return Response.json({
+      service: "Lotwise Price Relay",
+      endpoints: [
+        "GET /health — service status",
+        "GET /prices — all cached prices",
+        "GET /price/:symbol — single price (e.g. /price/R_75)",
+        "POST /subscribe — subscribe to new symbol { symbol: 'R_75' }",
+      ],
+    }, { headers: corsHeaders });
+  },
+});
+
+console.log(`[relay] Price relay server running on http://localhost:${PORT}`);
+console.log(`[relay] Monitoring ${ALL_SYNTHETIC_SYMBOLS.length} synthetic symbols`);
+
+// Start WS connection
+connect();
+
+// Prevent process from exiting
+process.on("SIGTERM", () => {
+  console.log("[relay] Shutting down...");
+  if (ws) ws.close();
+  server.stop();
+  process.exit(0);
+});

@@ -1,8 +1,7 @@
 // Lotwise service worker — PWA shell caching + background price monitoring
 // Monitors crypto (Binance), forex & indices (TradingView Scanner) in background.
+// Monitors synthetic indices via the price-relay mini-service (localhost:3001).
 // Stores auto-outcomes in Cache API, syncs to page on reopen.
-// NOTE: Deriv synthetic WS is NOT available in SW context — synthetic alerts
-// only fire while the page is open.
 
 const CACHE_NAME = "lotwise-v3";
 const STATIC_ASSETS = [
@@ -164,6 +163,20 @@ async function checkAlertPrice(alert) {
     } catch {}
   }
 
+  // Try price-relay for synthetic indices
+  if (price == null && alert.derivSymbol) {
+    try {
+      const res = await fetch(
+        `/api/relay?XTransformPort=3001&symbol=${alert.derivSymbol}`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.price === "number") price = data.price;
+      }
+    } catch {}
+  }
+
   if (price == null) return;
 
   const tolerance = alert.targetPrice * 0.0001;
@@ -212,6 +225,21 @@ async function checkTradeOutcome(trade) {
       if (res.ok) {
         const data = await res.json();
         if (typeof data.close === "number") price = data.close;
+      }
+    } catch {}
+  }
+
+  // Try price-relay for synthetic indices (Deriv WS → REST bridge)
+  // The relay runs on localhost:3001 when deployed alongside the app
+  if (price == null && trade.derivSymbol) {
+    try {
+      const res = await fetch(
+        `/api/relay?XTransformPort=3001&symbol=${trade.derivSymbol}`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.price === "number") price = data.price;
       }
     } catch {}
   }

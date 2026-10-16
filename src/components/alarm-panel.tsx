@@ -28,6 +28,7 @@ interface AlarmPanelProps {
     takeProfit?: number;
   } | null;
   onOutcome?: (symbolId: string, outcome: "win" | "loss", price: number) => void;
+  currentDerivSymbol?: string;
 }
 
 export function AlarmPanel({
@@ -40,6 +41,7 @@ export function AlarmPanel({
   currentSymbolDecimals,
   tradeLevels,
   onOutcome,
+  currentDerivSymbol,
 }: AlarmPanelProps) {
   const manager = useAlarmManager(
     currentSymbolId,
@@ -67,6 +69,7 @@ export function AlarmPanel({
         direction: a.direction,
         type: a.type,
         label: a.label,
+        derivSymbol: currentDerivSymbol,
       }));
     navigator.serviceWorker?.controller?.postMessage({
       type: "SYNC_ALERTS",
