@@ -125,7 +125,6 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
     try {
       // Migrate from legacy keys if new keys don't exist
       let saved = localStorage.getItem(SETTINGS_KEY);
@@ -153,7 +152,6 @@ export default function Home() {
       // ignore malformed storage
     }
     setHydrated(true);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   useEffect(() => {
@@ -322,6 +320,9 @@ export default function Home() {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
     setTradeNote("");
 
+    // Sync trades to service worker for background monitoring
+    syncTradesToSW(next);
+
     // Scroll to history section so user sees the saved trade
     setTimeout(() => {
       const historyCard = document.querySelector('[class*="HISTORY"]')?.closest('[data-slot="card"]') ||
@@ -330,6 +331,31 @@ export default function Home() {
                            ];
       historyCard?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
+  }
+
+  // Sync pending trades to the service worker for background monitoring
+  function syncTradesToSW(trades: TradeRecord[]) {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    // Only sync pending trades that have SL/TP
+    const pendingTrades = trades
+      .filter((t) => (t.outcome === "pending" || !t.outcome) && t.stopLoss && t.takeProfit)
+      .map((t) => ({
+        id: t.id,
+        symbolId: t.symbolId,
+        symbolLabel: t.symbolLabel,
+        binanceSymbol: symbol.binanceSymbol,
+        tvScannerSymbol: symbol.tvScannerSymbol,
+        entry: t.entry,
+        stopLoss: t.stopLoss,
+        takeProfit: t.takeProfit,
+        outcome: t.outcome || "pending",
+      }));
+    // Store globally for alarm panel to pick up
+    (window as unknown as { __lotwiseTrades?: typeof pendingTrades }).__lotwiseTrades = pendingTrades;
+    navigator.serviceWorker?.controller?.postMessage({
+      type: "SYNC_TRADES",
+      trades: pendingTrades,
+    });
   }
 
   function updateTradeRecord(id: string, updates: Partial<TradeRecord>) {
@@ -343,6 +369,33 @@ export default function Home() {
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   }
+
+  // Listen for background outcomes from the service worker
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data) return;
+
+      if (data.type === "TRADE_OUTCOME") {
+        updateTradeRecord(data.tradeId, { outcome: data.outcome });
+      } else if (data.type === "PENDING_OUTCOMES") {
+        if (data.outcomes && Array.isArray(data.outcomes)) {
+          for (const oc of data.outcomes) {
+            updateTradeRecord(oc.tradeId, { outcome: oc.outcome });
+          }
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleMessage);
+    navigator.serviceWorker?.controller?.postMessage({ type: "GET_PENDING_OUTCOMES" });
+
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleMessage);
+    };
+  }, [history]);
 
   function replayTrade(rec: TradeRecord) {
     setAssetClass(rec.assetClass);
@@ -1441,6 +1494,15 @@ export default function Home() {
         currentPrice={livePrice.price}
         currentSymbolDecimals={symbol.decimals}
         tradeLevels={tradeLevelsForAlarm}
+        onOutcome={(symId, outcome, price) => {
+          // Auto-update the most recent pending trade for this symbol
+          const pendingTrade = history.find(
+            (t) => t.symbolId === symId && (t.outcome === "pending" || !t.outcome)
+          );
+          if (pendingTrade) {
+            updateTradeRecord(pendingTrade.id, { outcome, realizedPnL: outcome === "win" ? pendingTrade.actualProfit : -pendingTrade.actualLoss });
+          }
+        }}
       />
     </div>
   );

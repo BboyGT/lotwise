@@ -72,7 +72,8 @@ export function useAlarmManager(
   currentSymbolId: string,
   currentPrice: number | null,
   currentSymbolLabel: string,
-  tradeLevels: ActiveTradeLevels | null
+  tradeLevels: ActiveTradeLevels | null,
+  onOutcome?: (symbolId: string, outcome: "win" | "loss", price: number) => void
 ) {
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [settings, setSettings] = useState<AlarmSettings>(DEFAULT_SETTINGS);
@@ -85,7 +86,12 @@ export function useAlarmManager(
   const alertsRef = useRef<PriceAlert[]>([]);
   const settingsRef = useRef<AlarmSettings>(DEFAULT_SETTINGS);
   const tradeLevelsRef = useRef<ActiveTradeLevels | null>(null);
-  const firedTradeLevelsRef = useRef<Set<string>>(new Set()); // dedupe: don't re-fire same level until price moves away
+  const firedTradeLevelsRef = useRef<Set<string>>(new Set());
+  const onOutcomeRef = useRef(onOutcome);
+
+  useEffect(() => {
+    onOutcomeRef.current = onOutcome;
+  }, [onOutcome]); // dedupe: don't re-fire same level until price moves away
 
   useEffect(() => {
     alertsRef.current = alerts;
@@ -209,7 +215,7 @@ export function useAlarmManager(
       }
     }
 
-    // SL hit detection
+    // SL hit detection → auto-mark trade as loss
     if (levels.stopLoss != null && levels.stopLoss > 0) {
       const k = `sl:${key(levels.stopLoss)}`;
       const tolerance = levels.stopLoss * 0.0001;
@@ -218,10 +224,14 @@ export function useAlarmManager(
         const price = currentPrice;
         setTimeout(() => emitEvent("stopLoss", `Stop loss triggered at ${price}`, price), 0);
         firedTradeLevelsRef.current.add(k);
+        // Auto-update trade outcome
+        if (onOutcomeRef.current) {
+          setTimeout(() => onOutcomeRef.current?.(currentSymbolId, "loss", price), 0);
+        }
       }
     }
 
-    // TP hit detection
+    // TP hit detection → auto-mark trade as win
     if (levels.takeProfit != null && levels.takeProfit > 0) {
       const k = `tp:${key(levels.takeProfit)}`;
       const tolerance = levels.takeProfit * 0.0001;
@@ -230,6 +240,10 @@ export function useAlarmManager(
         const price = currentPrice;
         setTimeout(() => emitEvent("takeProfit", `Take profit reached at ${price}`, price), 0);
         firedTradeLevelsRef.current.add(k);
+        // Auto-update trade outcome
+        if (onOutcomeRef.current) {
+          setTimeout(() => onOutcomeRef.current?.(currentSymbolId, "win", price), 0);
+        }
       }
     }
   }, [currentPrice, tradeLevels, currentSymbolId]);

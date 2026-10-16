@@ -27,6 +27,7 @@ interface AlarmPanelProps {
     stopLoss?: number;
     takeProfit?: number;
   } | null;
+  onOutcome?: (symbolId: string, outcome: "win" | "loss", price: number) => void;
 }
 
 export function AlarmPanel({
@@ -38,21 +39,25 @@ export function AlarmPanel({
   currentPrice,
   currentSymbolDecimals,
   tradeLevels,
+  onOutcome,
 }: AlarmPanelProps) {
   const manager = useAlarmManager(
     currentSymbolId,
     currentPrice,
     currentSymbolLabel,
-    tradeLevels
+    tradeLevels,
+    onOutcome
   );
 
   const [newAlertPrice, setNewAlertPrice] = useState("");
   const [newAlertDirection, setNewAlertDirection] = useState<"above" | "below">("above");
   const [newAlertLabel, setNewAlertLabel] = useState("");
 
-  // Sync active alerts to service worker for background polling
+  // Sync active alerts + trades to service worker for background monitoring
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+
+    // Sync alerts
     const activeAlerts = manager.alerts
       .filter((a) => a.status === "active")
       .map((a) => ({
@@ -67,6 +72,17 @@ export function AlarmPanel({
       type: "SYNC_ALERTS",
       alerts: activeAlerts,
     });
+
+    // Sync trades with SL/TP for background monitoring
+    // The parent component needs to pass trade data — we use a global window property
+    // set by the page when trades are saved
+    const trades = (window as unknown as { __lotwiseTrades?: unknown[] }).__lotwiseTrades || [];
+    if (trades.length > 0) {
+      navigator.serviceWorker?.controller?.postMessage({
+        type: "SYNC_TRADES",
+        trades,
+      });
+    }
   }, [manager.alerts]);
 
   if (!open) return null;

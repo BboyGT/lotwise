@@ -1,7 +1,10 @@
-// Lotwise service worker — PWA shell caching + push notifications + background alarm checks
-// Strategy: cache-first for static assets, network-first for everything else.
+// Lotwise service worker — PWA shell caching + background price monitoring
+// Monitors crypto (Binance), forex & indices (TradingView Scanner) in background.
+// Stores auto-outcomes in Cache API, syncs to page on reopen.
+// NOTE: Deriv synthetic WS is NOT available in SW context — synthetic alerts
+// only fire while the page is open.
 
-const CACHE_NAME = "lotwise-v2";
+const CACHE_NAME = "lotwise-v3";
 const STATIC_ASSETS = [
   "/",
   "/logo.svg",
@@ -34,16 +37,12 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  // Only handle GET
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  // Skip cross-origin requests (TradingView, Binance, Deriv)
   if (url.origin !== self.location.origin) return;
-  // Skip Next.js HMR and dev-only paths
   if (url.pathname.startsWith("/_next/webpack-hmr")) return;
 
-  // Network-first for navigation (always get fresh HTML)
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
@@ -57,7 +56,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache-first for static assets
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
@@ -70,89 +68,60 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-// Allow page to trigger skipWaiting from install prompt
-self.addEventListener("message", (event) => {
-  if (event.data === "SKIP_WAITING") self.skipWaiting();
-});
-
 // ===========================================================================
-// Background alarm polling
+// Background price monitoring + auto-outcome detection
 // ===========================================================================
 
-// In-memory store of active alerts (synced from page via postMessage)
+// In-memory store synced from page
 let backgroundAlerts = [];
+let backgroundTrades = []; // trades with SL/TP to monitor
 let pollInterval = null;
+const OUTCOMES_CACHE = "lotwise-outcomes";
 
 self.addEventListener("message", (event) => {
   if (!event.data) return;
-  const { type, alerts } = event.data;
+  const { type } = event.data;
 
   if (type === "SYNC_ALERTS") {
-    backgroundAlerts = alerts || [];
-    // Restart polling if we have alerts, stop if none
-    if (backgroundAlerts.length > 0) {
-      startBackgroundPolling();
-    } else {
-      stopBackgroundPolling();
-    }
+    backgroundAlerts = event.data.alerts || [];
+    startBackgroundPolling();
+  } else if (type === "SYNC_TRADES") {
+    // Trades with SL/TP to monitor in background
+    backgroundTrades = event.data.trades || [];
+    startBackgroundPolling();
   } else if (type === "SKIP_WAITING") {
     self.skipWaiting();
+  } else if (type === "GET_PENDING_OUTCOMES") {
+    // Page is asking for outcomes determined while app was closed
+    getPendingOutcomes().then((outcomes) => {
+      event.source.postMessage({ type: "PENDING_OUTCOMES", outcomes });
+      // Clear the cache after sending
+      clearPendingOutcomes();
+    });
   }
 });
 
 async function startBackgroundPolling() {
-  if (pollInterval) return; // already running
+  if (pollInterval) return;
 
-  // Poll every 5 seconds while the page is closed/backgrounded
   pollInterval = setInterval(async () => {
-    if (backgroundAlerts.length === 0) return;
-
-    // Group by source (deriv vs binance)
-    const derivAlerts = backgroundAlerts.filter((a) => a.derivSymbol);
-    const binanceAlerts = backgroundAlerts.filter((a) => a.binanceSymbol);
-
-    // Check Binance alerts
-    for (const alert of binanceAlerts) {
-      try {
-        const res = await fetch(
-          `https://api.binance.com/api/v3/ticker/price?symbol=${alert.binanceSymbol}`,
-          { cache: "no-store" }
-        );
-        if (!res.ok) continue;
-        const data = await res.json();
-        const price = parseFloat(data.price);
-
-        const tolerance = alert.targetPrice * 0.0001;
-        let hit = false;
-        if (alert.direction === "above" && price >= alert.targetPrice - tolerance) {
-          hit = true;
-        } else if (alert.direction === "below" && price <= alert.targetPrice + tolerance) {
-          hit = true;
-        }
-
-        if (hit) {
-          await fireBackgroundNotification(alert, price);
-          // Remove from background alerts (one-shot)
-          backgroundAlerts = backgroundAlerts.filter((a) => a.id !== alert.id);
-          // Notify the page (if it's open) to update state
-          const clients = await self.clients.matchAll({ type: "window" });
-          clients.forEach((client) =>
-            client.postMessage({
-              type: "ALERT_TRIGGERED",
-              alertId: alert.id,
-              price,
-            })
-          );
-        }
-      } catch {
-        // Network error — skip this cycle
+    // 1. Check custom alerts (Binance only — original behavior)
+    for (const alert of backgroundAlerts) {
+      if (alert.binanceSymbol || alert.derivSymbol) {
+        await checkAlertPrice(alert);
       }
     }
 
-    // Note: Deriv WS is not available in the service worker context (no WS support in SW).
-    // For Deriv synthetic alerts, we'd need a push server. The page handles Deriv alerts
-    // while it's open. When the page is closed, only Binance alerts are checked.
-    void derivAlerts;
+    // 2. Check trade SL/TP levels
+    for (const trade of backgroundTrades) {
+      if (trade.outcome !== "pending") continue;
+      await checkTradeOutcome(trade);
+    }
+
+    // Stop polling if nothing to monitor
+    if (backgroundAlerts.length === 0 && backgroundTrades.filter(t => t.outcome === "pending").length === 0) {
+      stopBackgroundPolling();
+    }
   }, 5000);
 }
 
@@ -163,9 +132,166 @@ function stopBackgroundPolling() {
   }
 }
 
+// Check custom price alerts
+async function checkAlertPrice(alert) {
+  let price = null;
+
+  // Try Binance for crypto
+  if (alert.binanceSymbol) {
+    try {
+      const res = await fetch(
+        `https://api.binance.com/api/v3/ticker/price?symbol=${alert.binanceSymbol}`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        price = parseFloat(data.price);
+      }
+    } catch {}
+  }
+
+  // Try TradingView Scanner for forex/indices
+  if (price == null && alert.tvScannerSymbol) {
+    try {
+      const res = await fetch(
+        `https://scanner.tradingview.com/symbol?symbol=${encodeURIComponent(alert.tvScannerSymbol)}&fields=close`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.close === "number") price = data.close;
+      }
+    } catch {}
+  }
+
+  if (price == null) return;
+
+  const tolerance = alert.targetPrice * 0.0001;
+  let hit = false;
+  if (alert.direction === "above" && price >= alert.targetPrice - tolerance) {
+    hit = true;
+  } else if (alert.direction === "below" && price <= alert.targetPrice + tolerance) {
+    hit = true;
+  }
+
+  if (hit) {
+    await fireBackgroundNotification(alert, price);
+    backgroundAlerts = backgroundAlerts.filter((a) => a.id !== alert.id);
+    const clients = await self.clients.matchAll({ type: "window" });
+    clients.forEach((client) =>
+      client.postMessage({ type: "ALERT_TRIGGERED", alertId: alert.id, price })
+    );
+  }
+}
+
+// Check trade SL/TP levels and auto-determine outcome
+async function checkTradeOutcome(trade) {
+  let price = null;
+
+  // Try Binance for crypto
+  if (trade.binanceSymbol) {
+    try {
+      const res = await fetch(
+        `https://api.binance.com/api/v3/ticker/price?symbol=${trade.binanceSymbol}`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        price = parseFloat(data.price);
+      }
+    } catch {}
+  }
+
+  // Try TradingView Scanner for forex/indices
+  if (price == null && trade.tvScannerSymbol) {
+    try {
+      const res = await fetch(
+        `https://scanner.tradingview.com/symbol?symbol=${encodeURIComponent(trade.tvScannerSymbol)}&fields=close`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.close === "number") price = data.close;
+      }
+    } catch {}
+  }
+
+  if (price == null) return;
+
+  // Check SL hit → loss
+  if (trade.stopLoss && trade.stopLoss > 0) {
+    const tolerance = trade.stopLoss * 0.0001;
+    if (Math.abs(price - trade.stopLoss) <= tolerance) {
+      const outcome = { tradeId: trade.id, outcome: "loss", price, timestamp: Date.now() };
+      await storePendingOutcome(outcome);
+      await fireTradeNotification(trade, "loss", price);
+      trade.outcome = "loss";
+      const clients = await self.clients.matchAll({ type: "window" });
+      clients.forEach((client) =>
+        client.postMessage({ type: "TRADE_OUTCOME", tradeId: trade.id, outcome: "loss", price })
+      );
+      return;
+    }
+  }
+
+  // Check TP hit → win
+  if (trade.takeProfit && trade.takeProfit > 0) {
+    const tolerance = trade.takeProfit * 0.0001;
+    if (Math.abs(price - trade.takeProfit) <= tolerance) {
+      const outcome = { tradeId: trade.id, outcome: "win", price, timestamp: Date.now() };
+      await storePendingOutcome(outcome);
+      await fireTradeNotification(trade, "win", price);
+      trade.outcome = "win";
+      const clients = await self.clients.matchAll({ type: "window" });
+      clients.forEach((client) =>
+        client.postMessage({ type: "TRADE_OUTCOME", tradeId: trade.id, outcome: "win", price })
+      );
+      return;
+    }
+  }
+}
+
+// Store outcome in Cache API (persists across SW restarts)
+async function storePendingOutcome(outcome) {
+  try {
+    const cache = await caches.open(OUTCOMES_CACHE);
+    const response = new Response(JSON.stringify(outcome));
+    await cache.put(`outcome-${outcome.tradeId}-${outcome.timestamp}`, response);
+  } catch {}
+}
+
+// Get all stored outcomes (called when app reopens)
+async function getPendingOutcomes() {
+  try {
+    const cache = await caches.open(OUTCOMES_CACHE);
+    const keys = await cache.keys();
+    const outcomes = [];
+    for (const key of keys) {
+      const response = await cache.match(key);
+      if (response) {
+        const text = await response.text();
+        outcomes.push(JSON.parse(text));
+      }
+    }
+    return outcomes;
+  } catch {
+    return [];
+  }
+}
+
+// Clear outcomes after they've been sent to the page
+async function clearPendingOutcomes() {
+  try {
+    const cache = await caches.open(OUTCOMES_CACHE);
+    const keys = await cache.keys();
+    for (const key of keys) {
+      await cache.delete(key);
+    }
+  } catch {}
+}
+
 async function fireBackgroundNotification(alert, price) {
   if (!("Notification" in self)) return;
-  // Notifications from SW don't need permission check (granted on subscribe)
   const icon = alert.type === "stopLoss" ? "🛑" : alert.type === "takeProfit" ? "📈" : "🔔";
   const title = `${icon} Lotwise — ${alert.symbolLabel}`;
   const body =
@@ -175,34 +301,38 @@ async function fireBackgroundNotification(alert, price) {
 
   try {
     await self.registration.showNotification(title, {
-      body,
-      icon: "/icon-192.png",
-      badge: "/icon-192-maskable.png",
-      tag: alert.id,
-      requireInteraction: true,
+      body, icon: "/icon-192.png", badge: "/icon-192-maskable.png",
+      tag: alert.id, requireInteraction: true,
       data: { alertId: alert.id, url: "/" },
     });
-  } catch (err) {
-    // Some browsers require a click interaction — silently fail
-    console.warn("[SW] Notification failed:", err);
-  }
+  } catch {}
 }
 
-// Handle notification click — focus the app
+async function fireTradeNotification(trade, outcome, price) {
+  if (!("Notification" in self)) return;
+  const icon = outcome === "win" ? "📈" : "🛑";
+  const result = outcome === "win" ? "Take profit hit — WIN" : "Stop loss hit — LOSS";
+  const title = `${icon} Lotwise — ${trade.symbolLabel}`;
+  const body = `${result} at ${price}`;
+
+  try {
+    await self.registration.showNotification(title, {
+      body, icon: "/icon-192.png", badge: "/icon-192-maskable.png",
+      tag: `trade-${trade.id}`, requireInteraction: true,
+      data: { tradeId: trade.id, url: "/" },
+    });
+  } catch {}
+}
+
+// Handle notification click
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   event.waitUntil(
     self.clients.matchAll({ type: "window" }).then((clients) => {
-      // Focus existing window if open
       for (const client of clients) {
-        if ("focus" in client) {
-          return client.focus();
-        }
+        if ("focus" in client) return client.focus();
       }
-      // Otherwise open new window
-      if (self.clients.openWindow) {
-        return self.clients.openWindow("/");
-      }
+      if (self.clients.openWindow) return self.clients.openWindow("/");
     })
   );
 });
