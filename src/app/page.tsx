@@ -298,7 +298,9 @@ export default function Home() {
   function saveTrade() {
     if (!calc.valid) return;
     const record: TradeRecord = {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `trade-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       timestamp: Date.now(),
       symbolId: symbol.id,
       symbolLabel: symbol.label,
@@ -318,7 +320,16 @@ export default function Home() {
     const next = [record, ...history].slice(0, 50);
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-    setTradeNote(""); // reset note after save
+    setTradeNote("");
+
+    // Scroll to history section so user sees the saved trade
+    setTimeout(() => {
+      const historyCard = document.querySelector('[class*="HISTORY"]')?.closest('[data-slot="card"]') ||
+                           document.querySelectorAll('[data-slot="card"]')[
+                             document.querySelectorAll('[data-slot="card"]').length - 1
+                           ];
+      historyCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
   }
 
   function updateTradeRecord(id: string, updates: Partial<TradeRecord>) {
@@ -1178,8 +1189,21 @@ export default function Home() {
 
                 {/* Save */}
                 <Button
-                  onClick={saveTrade}
-                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-mono uppercase tracking-wider text-xs font-bold shadow-lg shadow-amber-500/20"
+                  onClick={() => {
+                    saveTrade();
+                    // Brief visual feedback
+                    const btn = document.activeElement as HTMLButtonElement;
+                    if (btn) {
+                      const orig = btn.textContent;
+                      btn.textContent = "✓ SAVED TO HISTORY";
+                      btn.classList.add("bg-emerald-500");
+                      setTimeout(() => {
+                        btn.textContent = orig;
+                        btn.classList.remove("bg-emerald-500");
+                      }, 1500);
+                    }
+                  }}
+                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-mono uppercase tracking-wider text-xs font-bold shadow-lg shadow-amber-500/20 transition-all"
                 >
                   <History className="h-3 w-3 mr-1.5" />
                   Save to History
