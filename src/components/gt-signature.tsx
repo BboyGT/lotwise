@@ -161,7 +161,7 @@ export function GTMonogram() {
           className="fixed bottom-4 right-4 z-[60] group pointer-events-auto"
           style={{
             opacity: showIntro ? 0 : 1,
-            transition: "opacity 0.5s ease 4.5s",
+            transition: showIntro ? "opacity 0.5s ease 4.5s" : "opacity 0.5s ease",
           }}
           aria-label="Built by GT"
         >
