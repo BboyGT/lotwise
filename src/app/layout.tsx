@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals-v9.css";
+import "./globals-v11.css";
 import { Toaster } from "@/components/ui/toaster";
 import { CustomScrollbar } from "@/components/custom-scrollbar";
 import { GTMonogram } from "@/components/gt-signature";
