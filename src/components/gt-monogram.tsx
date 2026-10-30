@@ -212,14 +212,14 @@ export function GTMonogram() {
       {showBadge && (
         <button
           onClick={() => setShowModal(true)}
-          className="fixed bottom-3 right-3 z-50 group pointer-events-auto"
+          className="fixed bottom-4 right-4 z-[60] group pointer-events-auto"
           style={{
             opacity: showIntro ? 0 : 1,
             transition: "opacity 0.5s ease 3.2s",
           }}
           aria-label="Built by GT"
         >
-          <div className="relative flex items-center justify-center overflow-hidden rounded-md px-2 py-1 border border-amber-500/20 bg-black/60 backdrop-blur-sm transition-all group-hover:border-amber-500/50 group-hover:scale-110">
+          <div className="relative flex items-center justify-center overflow-hidden rounded-lg px-3 py-1.5 border border-amber-500/20 bg-black/60 backdrop-blur-sm transition-all group-hover:border-amber-500/50 group-hover:scale-110">
             {/* Light sweep */}
             <div
               className="absolute inset-0 pointer-events-none"
@@ -230,7 +230,7 @@ export function GTMonogram() {
               }}
             />
 
-            <svg width="28" height="18" viewBox="0 0 200 120" fill="none" className="relative z-10">
+            <svg width="44" height="28" viewBox="0 0 200 120" fill="none" className="relative z-10">
               <defs>
                 <linearGradient id="gt-badge-grad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor="#FFD56B" />
@@ -257,6 +257,7 @@ export function GTMonogram() {
                 style={{ filter: "drop-shadow(0 0 2px rgba(255,184,0,0.6))" }}
               />
             </svg>
+            <span className="ml-1.5 text-[9px] font-mono uppercase tracking-wider text-amber-400/0 group-hover:text-amber-400/80 transition-colors">GT</span>
           </div>
         </button>
       )}
