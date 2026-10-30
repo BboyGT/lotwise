@@ -424,8 +424,9 @@ body::-webkit-scrollbar {
   box-shadow: 0 0 8px rgba(255, 184, 0, 0.6) !important;
 }
 
+
 /* ===========================================================================
-   GT MONOGRAM — Intro animation + permanent badge
+   GT MONOGRAM — Calligraphic brush letters + bouncing intro + celebration
    =========================================================================== */
 
 /* ---- Intro fade out ---- */
@@ -434,42 +435,48 @@ body::-webkit-scrollbar {
   100% { background: rgba(5, 6, 8, 0); }
 }
 
-/* ---- Scanline flash ---- */
-@keyframes gt-scanline-flash {
-  0% { opacity: 0; }
+/* ---- Bouncing G (drops from top) ---- */
+@keyframes gt-bounce-g {
+  0% { transform: translate(0, -400px) rotate(-15deg); opacity: 0; }
   30% { opacity: 1; }
-  100% { opacity: 0; }
+  50% { transform: translate(0, 20px) rotate(0deg); }
+  65% { transform: translate(0, -15px) rotate(0deg); }
+  80% { transform: translate(0, 5px) rotate(0deg); }
+  100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
 }
 
-/* ---- Letter G draw animation ---- */
-@keyframes gt-draw-g {
-  0% { stroke-dashoffset: 200; }
-  100% { stroke-dashoffset: 0; }
+/* ---- Bouncing T (flies in from right) ---- */
+@keyframes gt-bounce-t {
+  0% { transform: translate(400px, 0) rotate(20deg); opacity: 0; }
+  30% { opacity: 1; }
+  50% { transform: translate(-20px, 0) rotate(0deg); }
+  65% { transform: translate(15px, 0) rotate(0deg); }
+  80% { transform: translate(-5px, 0) rotate(0deg); }
+  100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
 }
 
-/* ---- Letter T draw animation ---- */
-@keyframes gt-draw-t {
-  0% { stroke-dashoffset: 180; }
-  100% { stroke-dashoffset: 0; }
-}
-
-/* ---- Glow burst behind letters ---- */
-@keyframes gt-glow-burst {
-  0% { opacity: 0; transform: scale(0.5); }
-  50% { opacity: 1; transform: scale(2); }
-  100% { opacity: 0; transform: scale(3); }
-}
+/* ---- Confetti burst (10 directional variants) ---- */
+@keyframes gt-confetti-0 { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; } }
+@keyframes gt-confetti-1 { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 50% { opacity: 0.8; } 100% { transform: translate(var(--dx), calc(var(--dy) + 100px)) rotate(var(--rot)); opacity: 0; } }
+@keyframes gt-confetti-2 { 0% { transform: translate(0,0) rotate(0) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(0.3); opacity: 0; } }
+@keyframes gt-confetti-3 { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 30% { opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 80px)) rotate(var(--rot)); opacity: 0; } }
+@keyframes gt-confetti-4 { 0% { transform: translate(0,0) rotate(0) scale(1.2); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(0.2); opacity: 0; } }
+@keyframes gt-confetti-5 { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 60% { opacity: 0.9; } 100% { transform: translate(calc(var(--dx) * 0.7), calc(var(--dy) + 120px)) rotate(var(--rot)); opacity: 0; } }
+@keyframes gt-confetti-6 { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(calc(var(--rot) * -1)); opacity: 0; } }
+@keyframes gt-confetti-7 { 0% { transform: translate(0,0) rotate(0) scale(0.8); opacity: 1; } 100% { transform: translate(calc(var(--dx) * 1.2), var(--dy)) rotate(var(--rot)) scale(0.1); opacity: 0; } }
+@keyframes gt-confetti-8 { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 40% { opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 60px)) rotate(var(--rot)); opacity: 0; } }
+@keyframes gt-confetti-9 { 0% { transform: translate(0,0) rotate(0) scale(1); opacity: 1; } 100% { transform: translate(calc(var(--dx) * 0.8), calc(var(--dy) + 100px)) rotate(var(--rot)) scale(0.4); opacity: 0; } }
 
 /* ---- Shockwave ring ---- */
 @keyframes gt-shockwave {
-  0% { width: 100px; height: 100px; opacity: 0.8; border-width: 3px; }
-  100% { width: 600px; height: 600px; opacity: 0; border-width: 0px; }
+  0% { width: 80px; height: 80px; opacity: 0.9; border-width: 3px; }
+  100% { width: 500px; height: 500px; opacity: 0; border-width: 0px; }
 }
 
 /* ---- Tagline fade in ---- */
 @keyframes gt-tagline {
-  0% { opacity: 0; transform: translateY(10px); }
-  100% { opacity: 0.7; transform: translateY(0); }
+  0% { opacity: 0; transform: translateY(15px); }
+  100% { opacity: 0.8; transform: translateY(0); }
 }
 
 /* ---- Cursor blink ---- */
@@ -477,18 +484,6 @@ body::-webkit-scrollbar {
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
 }
-
-/* ---- Particles (10 different directions) ---- */
-@keyframes gt-particle-0 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-120px, -80px) scale(0.2); } }
-@keyframes gt-particle-1 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(100px, -100px) scale(0.2); } }
-@keyframes gt-particle-2 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(150px, 30px) scale(0.2); } }
-@keyframes gt-particle-3 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-140px, 50px) scale(0.2); } }
-@keyframes gt-particle-4 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(80px, 120px) scale(0.2); } }
-@keyframes gt-particle-5 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-90px, 110px) scale(0.2); } }
-@keyframes gt-particle-6 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(60px, -60px) scale(0.3); } }
-@keyframes gt-particle-7 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-70px, -70px) scale(0.3); } }
-@keyframes gt-particle-8 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(130px, -40px) scale(0.2); } }
-@keyframes gt-particle-9 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-130px, 20px) scale(0.2); } }
 
 /* ---- Badge light sweep ---- */
 @keyframes gt-sweep {
@@ -500,4 +495,24 @@ body::-webkit-scrollbar {
 @keyframes gt-modal-in {
   0% { opacity: 0; transform: scale(0.9); }
   100% { opacity: 1; transform: scale(1); }
+}
+
+/* ---- Celebration: confetti falling from top ---- */
+@keyframes gt-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* ---- Celebration: lower-third banner slide in ---- */
+@keyframes gt-lower-third-in {
+  0% { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ---- Celebration: lower-third banner slide out ---- */
+@keyframes gt-lower-third-out {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
 }

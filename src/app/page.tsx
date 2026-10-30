@@ -75,6 +75,7 @@ import { LegalModal } from "@/components/legal-modal";
 import { EquityCurveChart } from "@/components/equity-curve-chart";
 import { SyntheticCandleChart } from "@/components/synthetic-candle-chart";
 import { ConnectionDiagnostic } from "@/components/connection-diagnostic";
+import { AnimatedNumber } from "@/components/gt-monogram";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -1001,7 +1002,7 @@ export default function Home() {
                     Recommended Lot Size
                   </p>
                   <p className="text-6xl sm:text-7xl lg:text-8xl font-bold text-amber-400 rm-glow-gold font-mono tabular-nums leading-none">
-                    {formatLot(calc.recommendedLot)}
+                    <AnimatedNumber value={calc.recommendedLot} duration={500} format={(n) => n.toFixed(2)} />
                   </p>
                   <div className="flex items-center justify-center gap-3 mt-3 text-[10px] font-mono uppercase tracking-wider text-slate-500">
                     <span>exact: <span className="text-slate-300">{calc.exactLot.toFixed(4)}</span></span>
@@ -1086,19 +1087,19 @@ export default function Home() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <StatTile
                     label="Risk $"
-                    value={formatMoney(conv(calc.riskAmount), displayCurrency)}
+                    value={<AnimatedNumber value={conv(calc.riskAmount)} duration={400} format={(n) => formatMoney(n, displayCurrency)} />}
                     color="amber"
                     icon={<Shield className="h-3 w-3" />}
                   />
                   <StatTile
                     label="Loss"
-                    value={formatMoney(conv(calc.actualLoss), displayCurrency)}
+                    value={<AnimatedNumber value={conv(calc.actualLoss)} duration={400} format={(n) => formatMoney(n, displayCurrency)} />}
                     color="rose"
                     icon={<TrendingDown className="h-3 w-3" />}
                   />
                   <StatTile
                     label="Win"
-                    value={formatMoney(conv(calc.actualProfit), displayCurrency)}
+                    value={<AnimatedNumber value={conv(calc.actualProfit)} duration={400} format={(n) => formatMoney(n, displayCurrency)} />}
                     color="emerald"
                     icon={<TrendingUp className="h-3 w-3" />}
                   />
@@ -1518,7 +1519,7 @@ function StatTile({
   icon,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   color: "amber" | "rose" | "emerald" | "cyan";
   icon?: React.ReactNode;
 }) {
