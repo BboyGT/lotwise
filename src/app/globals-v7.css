@@ -423,3 +423,81 @@ body::-webkit-scrollbar {
   background: linear-gradient(180deg, rgba(255, 213, 107, 0.8), rgba(255, 184, 0, 0.6)) !important;
   box-shadow: 0 0 8px rgba(255, 184, 0, 0.6) !important;
 }
+
+/* ===========================================================================
+   GT MONOGRAM — Intro animation + permanent badge
+   =========================================================================== */
+
+/* ---- Intro fade out ---- */
+@keyframes gt-fade-out {
+  0% { background: rgba(5, 6, 8, 1); }
+  100% { background: rgba(5, 6, 8, 0); }
+}
+
+/* ---- Scanline flash ---- */
+@keyframes gt-scanline-flash {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---- Letter G draw animation ---- */
+@keyframes gt-draw-g {
+  0% { stroke-dashoffset: 200; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* ---- Letter T draw animation ---- */
+@keyframes gt-draw-t {
+  0% { stroke-dashoffset: 180; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* ---- Glow burst behind letters ---- */
+@keyframes gt-glow-burst {
+  0% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(2); }
+  100% { opacity: 0; transform: scale(3); }
+}
+
+/* ---- Shockwave ring ---- */
+@keyframes gt-shockwave {
+  0% { width: 100px; height: 100px; opacity: 0.8; border-width: 3px; }
+  100% { width: 600px; height: 600px; opacity: 0; border-width: 0px; }
+}
+
+/* ---- Tagline fade in ---- */
+@keyframes gt-tagline {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 0.7; transform: translateY(0); }
+}
+
+/* ---- Cursor blink ---- */
+@keyframes gt-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* ---- Particles (10 different directions) ---- */
+@keyframes gt-particle-0 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-120px, -80px) scale(0.2); } }
+@keyframes gt-particle-1 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(100px, -100px) scale(0.2); } }
+@keyframes gt-particle-2 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(150px, 30px) scale(0.2); } }
+@keyframes gt-particle-3 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-140px, 50px) scale(0.2); } }
+@keyframes gt-particle-4 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(80px, 120px) scale(0.2); } }
+@keyframes gt-particle-5 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-90px, 110px) scale(0.2); } }
+@keyframes gt-particle-6 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(60px, -60px) scale(0.3); } }
+@keyframes gt-particle-7 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-70px, -70px) scale(0.3); } }
+@keyframes gt-particle-8 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(130px, -40px) scale(0.2); } }
+@keyframes gt-particle-9 { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-130px, 20px) scale(0.2); } }
+
+/* ---- Badge light sweep ---- */
+@keyframes gt-sweep {
+  0%, 100% { background-position: -100% 0; }
+  50% { background-position: 200% 0; }
+}
+
+/* ---- Modal entrance ---- */
+@keyframes gt-modal-in {
+  0% { opacity: 0; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}
