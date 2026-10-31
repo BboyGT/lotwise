@@ -124,7 +124,7 @@ export function GTMonogram() {
               opacity: introDone ? 0 : 1,
             }}
           >
-            <svg width="200" height="120" viewBox="20 25 160 70" fill="none">
+            <svg width="200" height="120" viewBox="15 20 170 80" fill="none" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <linearGradient id="gt-grad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor="#FFFCE8" />
@@ -145,7 +145,7 @@ export function GTMonogram() {
               <path
                 d="M 55 30 A 30 30 0 1 0 55 90 L 55 60 L 80 60"
                 stroke="url(#gt-grad)"
-                strokeWidth="10"
+                strokeWidth="8"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
@@ -161,7 +161,7 @@ export function GTMonogram() {
               <path
                 d="M 110 30 L 170 30 M 140 30 L 140 90"
                 stroke="url(#gt-grad)"
-                strokeWidth="10"
+                strokeWidth="8"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
@@ -224,7 +224,7 @@ export function GTMonogram() {
               }}
             />
 
-            <svg width="52" height="32" viewBox="20 25 160 70" fill="none" className="relative z-10">
+            <svg width="60" height="36" viewBox="15 20 170 80" fill="none" className="relative z-10" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <linearGradient id="gt-badge-grad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor="#FFD56B" />
@@ -235,7 +235,7 @@ export function GTMonogram() {
               <path
                 d="M 55 30 A 30 30 0 1 0 55 90 L 55 60 L 80 60"
                 stroke="url(#gt-badge-grad)"
-                strokeWidth="10"
+                strokeWidth="8"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
@@ -244,7 +244,7 @@ export function GTMonogram() {
               <path
                 d="M 110 30 L 170 30 M 140 30 L 140 90"
                 stroke="url(#gt-badge-grad)"
-                strokeWidth="10"
+                strokeWidth="8"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
@@ -275,7 +275,7 @@ export function GTMonogram() {
             </button>
 
             <div className="flex flex-col items-center gap-4">
-              <svg width="120" height="72" viewBox="20 25 160 70" fill="none">
+              <svg width="120" height="72" viewBox="15 20 170 80" fill="none" preserveAspectRatio="xMidYMid meet">
                 <defs>
                   <linearGradient id="gt-modal-grad" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#FFFCE8" />
@@ -287,7 +287,7 @@ export function GTMonogram() {
                 <path
                   d="M 55 30 A 30 30 0 1 0 55 90 L 55 60 L 80 60"
                   stroke="url(#gt-modal-grad)"
-                  strokeWidth="10"
+                  strokeWidth="8"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   fill="none"
@@ -296,7 +296,7 @@ export function GTMonogram() {
                 <path
                   d="M 110 30 L 170 30 M 140 30 L 140 90"
                   stroke="url(#gt-modal-grad)"
-                  strokeWidth="10"
+                  strokeWidth="8"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   fill="none"
