@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals-credits.css";
+import "./globals-mark.css";
 import { Toaster } from "@/components/ui/toaster";
 import { CustomScrollbar } from "@/components/custom-scrollbar";
-import { GTMonogram } from "@/components/gt-credits";
+import { GTMonogram } from "@/components/gt-mark";
 
 /**
  * Inline script that updates the CSS variable --scroll-percent on scroll.
