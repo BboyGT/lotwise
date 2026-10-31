@@ -45,7 +45,7 @@
 
 ## 🎯 Overview
 
-**Lotwise** is a privacy-first, client-side trading position calculator. It runs entirely in your browser — no account, no server, no tracking. Enter your balance, risk percentage, and trade setup, and Lotwise calculates the exact lot size to use, your potential loss, potential profit, and risk-to-reward ratio — with broker minimum lot validation.
+**Lotwise** is a browser-based trading position calculator. The calculator and trade journal run on your device; live prices and chart embeds connect to third-party providers. No Lotwise account or application server is required. Enter your balance, risk percentage, and trade setup to calculate a position size, estimated loss and profit, and risk-to-reward ratio, with broker minimum-lot validation.
 
 ### Why Lotwise?
 
@@ -64,7 +64,7 @@
 ## ✨ Features
 
 ### 📊 Position Calculator
-- **112 trading symbols** across 4 asset classes (Forex, Synthetic Indices, Real Indices, Crypto)
+- **162 trading symbols** across 4 asset classes: 35 forex, 48 synthetic indices, 16 real indices, and 63 crypto symbols
 - **Exact lot size** auto-calculated from your risk percentage and SL distance
 - **Min-lot validation** — warns when calculated lot is below broker minimum, shows adjusted scenario
 - **Risk-to-reward visualizer** — color-coded bar showing SL zone (red), entry marker (gold), TP zone (green)
@@ -72,10 +72,10 @@
 - **Multi-currency display** — switch between USD, EUR, GBP, NGN, JPY
 
 ### 📈 Live Price Feeds
-- **Crypto**: Real-time prices from Binance REST API (BTC, ETH, SOL, 26 pairs)
+- **Crypto**: Prices from Binance REST API (63 catalog symbols; availability depends on Binance market listings)
 - **Forex**: Real-time prices from TradingView Scanner API (EUR/USD, GBP/USD, 35 pairs)
 - **Indices**: Real-time prices from TradingView Scanner API (US30, NAS100, DAX, 16 indices)
-- **Synthetic**: Deriv WebSocket API for Boom/Crash/Volatility/Jump/Step indices
+- **Synthetic**: Deriv WebSocket API for 48 Boom/Crash/Volatility/Jump/Step and related indices
 - **One-click price fill** — "Fill Live Entry" auto-populates the entry field
 
 ### 🕯️ Candlestick Charts
@@ -129,10 +129,10 @@
 
 | Asset Class | Source | Status | Pairs |
 |---|---|---|---|
-| **Crypto** | Binance REST API | ✅ Real-time (no key needed) | 26 |
+| **Crypto** | Binance REST API | ✅ Real-time (no key needed) | 63 catalog symbols |
 | **Forex** | TradingView Scanner API | ✅ Real-time (no key needed) | 35 |
 | **Indices** | TradingView Scanner API | ✅ Real-time (no key needed) | 16 |
-| **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 37 |
+| **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 48 |
 
 > **Note on Synthetic Indices**: Deriv blocks WebSocket connections from cloud/datacenter IPs. If running on a cloud server, synthetic prices will use a simulator fallback. On residential IPs or local development, real Deriv prices stream live. Crypto, Forex, and Indices prices work everywhere via REST APIs.
 
@@ -199,34 +199,39 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) 20.9+ (or [Bun](https://bun.sh/) for the optional price relay)
+- [Node.js](https://nodejs.org/) 20.9 or later
 - A modern browser with WebSocket support
+- [Bun](https://bun.sh/) only if you want to run the optional price relay
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/lotwise.git
+git clone https://github.com/BboyGT/lotwise.git
 cd lotwise
 
-# Install dependencies
-bun install
-# or
-npm install
+# Install the exact dependency versions in the lockfile
+npm ci
 
 # Start the dev server
-bun run dev
-# or
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+The app does not require environment variables for local development. An optional Deriv price relay can be started with Bun for service-worker price polling:
+
+```bash
+npm run dev:relay
+```
+
+To run the app and relay together, use `npm run dev:all` (requires Bun). The calculator and direct price feeds work without the relay.
+
 ### Build for Production
 
 ```bash
-bun run build
-bun run start
+npm run build
+npm run start
 ```
 
 ### Lint & Type Check
@@ -260,9 +265,9 @@ The calculator is a pure function (`src/lib/calculator.ts`) and is covered by un
 
 ### Local Development
 ```bash
-bun run dev
+npm run dev
 # Open http://localhost:3000
-# All price feeds work on localhost (including Deriv WS)
+# Live price feeds depend on the provider and your network. Deriv may block cloud or restricted IP addresses.
 ```
 
 ### Register Your Own Deriv App ID (Optional)
@@ -316,22 +321,23 @@ lotwise/
 
 ---
 
-## 📊 Supported Symbols (112 Total)
+## 📊 Supported Symbols (162 Total)
 
 ### Forex (35 pairs)
 - **Majors** (7): EUR/USD, GBP/USD, USD/JPY, USD/CHF, USD/CAD, AUD/USD, NZD/USD
 - **EUR Crosses** (6): EUR/GBP, EUR/JPY, EUR/CHF, EUR/AUD, EUR/CAD, EUR/NZD
 - **GBP Crosses** (5): GBP/JPY, GBP/CHF, GBP/AUD, GBP/CAD, GBP/NZD
 - **AUD Crosses** (4): AUD/JPY, AUD/CHF, AUD/CAD, AUD/NZD
-- **NZD & Other** (5): NZD/JPY, NZD/CHF, NZD/CAD, CHF/JPY, CAD/JPY
+- **NZD Crosses** (3): NZD/JPY, NZD/CHF, NZD/CAD
+- **Other Crosses** (2): CHF/JPY, CAD/JPY
 - **Exotics** (8): USD/MXN, USD/ZAR, USD/TRY, USD/SGD, USD/HKD, USD/SEK, USD/NOK, USD/DKK
 
-### Synthetic Indices (37 pairs)
-- **Boom & Crash** (6): Boom 300/500/1000, Crash 300/500/1000
+### Synthetic Indices (48 symbols)
+- **Boom & Crash** (10): Boom 300/500/600/900/1000, Crash 300/500/600/900/1000
 - **Volatility** (5): V10, V25, V50, V75, V100
-- **Volatility 1s** (5): V10(1s), V25(1s), V50(1s), V75(1s), V100(1s)
+- **Volatility 1s** (8): V10, V15, V25, V30, V50, V75, V90, V100 (1s)
 - **Jump** (5): Jump 10/25/50/75/100
-- **Step** (9): Step 0.1 through 0.9
+- **Step** (13): Step 0.1 through 0.9, plus Step 200/300/400/500
 - **Bull/Bear/Smart** (7): Bull Market, Bear Market, Z Volatility 75, Smart 5R/10R/20R/40R
 
 ### Real Indices (16 pairs)
@@ -340,10 +346,15 @@ lotwise/
 - **Asia** (4): JPN225 (Nikkei), HKG50 (Hang Seng), AUS200 (ASX), KOSPI 200
 - **Volatility** (1): VIX
 
-### Crypto (26 pairs)
+### Crypto (63 symbols)
 - **Major** (8): BTC, ETH, XRP, SOL, ADA, DOT, LTC, BCH
 - **Layer 1 & 2** (10): AVAX, ATOM, NEAR, ARB, OP, APT, MATIC, FIL, INJ, SUI
-- **DeFi & Oracles** (8): LINK, UNI, AAVE, MKR, RUNE, TIA, SEI, BNB
+- **DeFi & Oracles** (15): LINK, UNI, AAVE, MKR, RUNE, TIA, SEI, BNB, DYDX, CRV, SUSHI, YFI, COMP, SNX, 1INCH
+- **Layer 1 Additional** (8): TRX, ETC, XLM, VET, ALGO, ICP, EGLD, STX
+- **Gaming & NFT** (7): SAND, MANA, AXS, GALA, THETA, CHZ, ENJ
+- **Meme Coins** (5): DOGE, SHIB, PEPE, BONK, WIF
+- **AI & Infrastructure** (5): RNDR, GRT, LDO, ORDI, WLD
+- **Additional** (5): FTM, ZIL, FLOW, IOTA, JUP
 
 ---
 
