@@ -15,11 +15,9 @@ export function GTMonogram() {
     try {
       const played = localStorage.getItem(INTRO_KEY);
       if (!played) localStorage.setItem(INTRO_KEY, "1");
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (!played) setShowIntro(true);
       else setShowBadge(true);
     } catch {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowBadge(true);
     }
   }, []);

@@ -47,6 +47,13 @@ upload/
 .zscripts/
 scripts/*.png
 lot-archive/
+examples/
+Caddyfile
+mini-services/.gitkeep
+scripts/build.sh
+tests/database-runtime-build.sh
+tests/python-runtime-build.sh
+tests/python-runtime-container.sh
 
 # Debug screenshots (keep only the numbered README screenshots 01 to 12)
 download/screenshots/*

@@ -34,9 +34,7 @@ export function usePWA() {
     const installed =
       window.matchMedia("(display-mode: standalone)").matches ||
       !!(typeof navigator !== "undefined" && (navigator as { standalone?: boolean }).standalone);
-    /* eslint-disable react-hooks/set-state-in-effect */
     if (installed) setIsInstalled(true);
-    /* eslint-enable react-hooks/set-state-in-effect */
 
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();

@@ -18,4 +18,4 @@ The root README uses the numbered screenshots below to show the current interfac
 10. `11-mobile-view.png` and `12-mobile-calc.png` — mobile layouts
 11. `13-logo.png` and `logo.svg` — project logo assets
 
-Other image files in this directory are design and development captures. They are retained as project assets but are not referenced by the root README.
+Only the numbered README screenshots and logo assets are included in the public repository. Local design and development captures are ignored by Git.

@@ -105,7 +105,6 @@ export function useAlarmManager(
 
   // ----- load persisted state -----
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
     try {
       const savedAlerts = localStorage.getItem(ALERTS_KEY);
       if (savedAlerts) setAlerts(JSON.parse(savedAlerts));
@@ -114,7 +113,6 @@ export function useAlarmManager(
     } catch {
       // ignore
     }
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   // ----- persist alerts -----

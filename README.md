@@ -244,6 +244,12 @@ npm test              # Calculator unit tests (Vitest)
 
 The calculator is a pure function (`src/lib/calculator.ts`) and is covered by unit tests in `tests/`. For USD-base forex pairs (USD/JPY, USD/CHF, USD/CAD and the USD exotics) the pip value is derived from your entry price, so lot sizes stay correct as the rate moves.
 
+## Continuous integration and releases
+
+GitHub Actions runs linting, TypeScript checks, calculator tests, and a production build on pushes and pull requests to `main`, using Node.js 20 and 22. CodeQL scans the JavaScript and TypeScript code, and Dependabot checks npm dependencies and GitHub Actions weekly.
+
+To publish a GitHub Release, update the version in `package.json` and `package-lock.json`, then push a matching version tag such as `v1.1.0`. The release workflow reruns CI and creates release notes from merged changes. Lotwise is a web application, so releases are GitHub source releases; the project is not published to npm.
+
 ---
 
 ## 🌐 Deploy Your Own

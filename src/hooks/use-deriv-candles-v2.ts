@@ -73,7 +73,6 @@ export function useDerivCandles(
 
     // Reset transient state before subscribing. These setStates are needed
     // when the symbol changes (e.g. switching from V75 to Boom 500).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
     setError(null);
     setConnected(false);
