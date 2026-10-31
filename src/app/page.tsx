@@ -75,7 +75,7 @@ import { LegalModal } from "@/components/legal-modal";
 import { EquityCurveChart } from "@/components/equity-curve-chart";
 import { SyntheticCandleChart } from "@/components/synthetic-candle-chart";
 import { ConnectionDiagnostic } from "@/components/connection-diagnostic";
-import { AnimatedNumber } from "@/components/gt-signature";
+import { AnimatedNumber } from "@/components/gt-brand";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
