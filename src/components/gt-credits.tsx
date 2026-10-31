@@ -224,7 +224,7 @@ export function GTMonogram() {
               }}
             />
 
-            <svg width="44" height="28" viewBox="15 20 170 80" fill="none" className="relative z-10" preserveAspectRatio="xMidYMid meet">
+            <svg width="56" height="24" viewBox="22 27 153 66" fill="none" className="relative z-10" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <linearGradient id="gt-badge-grad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor="#FFD56B" />
