@@ -76,6 +76,7 @@ import { EquityCurveChart } from "@/components/equity-curve-chart";
 import { SyntheticCandleChart } from "@/components/synthetic-candle-chart";
 import { ConnectionDiagnostic } from "@/components/connection-diagnostic";
 import { AnimatedNumber } from "@/components/gt-mark";
+import { resolveTradeOutcome } from "@/lib/trade-outcomes";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -98,6 +99,8 @@ interface TradeRecord {
   note?: string;              // user journal note
   outcome?: "win" | "loss" | "breakeven" | "pending";  // user-set outcome
   realizedPnL?: number;       // user-set realized P/L for equity curve
+  closedAt?: number;
+  exitPrice?: number;
 }
 
 const HISTORY_KEY = "lotwise.history.v1";
@@ -344,12 +347,14 @@ export default function Home() {
         id: t.id,
         symbolId: t.symbolId,
         symbolLabel: t.symbolLabel,
-        binanceSymbol: symbol.binanceSymbol,
-        tvScannerSymbol: symbol.tvScannerSymbol,
-        derivSymbol: symbol.derivSymbol,
+        binanceSymbol: getSymbol(t.symbolId).binanceSymbol,
+        tvScannerSymbol: getSymbol(t.symbolId).tvScannerSymbol,
+        derivSymbol: getSymbol(t.symbolId).derivSymbol,
         entry: t.entry,
         stopLoss: t.stopLoss,
         takeProfit: t.takeProfit,
+        actualLoss: t.actualLoss,
+        actualProfit: t.actualProfit,
         outcome: t.outcome || "pending",
       }));
     // Store globally for alarm panel to pick up
@@ -361,15 +366,49 @@ export default function Home() {
   }
 
   function updateTradeRecord(id: string, updates: Partial<TradeRecord>) {
-    const next = history.map((r) => (r.id === id ? { ...r, ...updates } : r));
+    const next = history.map((r) => {
+      if (r.id !== id) return r;
+      const merged = { ...r, ...updates };
+      if (updates.outcome === "pending") {
+        merged.realizedPnL = undefined;
+        merged.closedAt = undefined;
+        merged.exitPrice = undefined;
+      } else if (updates.outcome) {
+        if (updates.realizedPnL === undefined) {
+          merged.realizedPnL = updates.outcome === "win"
+            ? r.actualProfit
+            : updates.outcome === "loss" ? -r.actualLoss : 0;
+        }
+        merged.closedAt = updates.closedAt ?? Date.now();
+      }
+      return merged;
+    });
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    syncTradesToSW(next);
   }
+
+  // Auto-journal target/stop crossings while this symbol has a real live feed.
+  useEffect(() => {
+    if (!livePrice.connected || !livePrice.price || livePrice.source === "simulator" || livePrice.source === "none") return;
+    const closedAt = Date.now();
+    const next = history.map((trade) => {
+      if (trade.symbolId !== symbol.id || (trade.outcome && trade.outcome !== "pending")) return trade;
+      const resolved = resolveTradeOutcome(trade, livePrice.price!);
+      return resolved ? { ...trade, ...resolved, closedAt } : trade;
+    });
+    if (next.some((trade, index) => trade !== history[index])) {
+      setHistory(next);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      syncTradesToSW(next);
+    }
+  }, [history, livePrice.connected, livePrice.price, livePrice.source, symbol.id]);
 
   function deleteTrade(id: string) {
     const next = history.filter((r) => r.id !== id);
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    syncTradesToSW(next);
   }
 
   // Listen for background outcomes from the service worker
@@ -381,11 +420,21 @@ export default function Home() {
       if (!data) return;
 
       if (data.type === "TRADE_OUTCOME") {
-        updateTradeRecord(data.tradeId, { outcome: data.outcome });
+        updateTradeRecord(data.tradeId, {
+          outcome: data.outcome,
+          ...(Number.isFinite(data.realizedPnL) ? { realizedPnL: data.realizedPnL } : {}),
+          ...(Number.isFinite(data.price) ? { exitPrice: data.price } : {}),
+          ...(Number.isFinite(data.timestamp) ? { closedAt: data.timestamp } : {}),
+        });
       } else if (data.type === "PENDING_OUTCOMES") {
         if (data.outcomes && Array.isArray(data.outcomes)) {
           for (const oc of data.outcomes) {
-            updateTradeRecord(oc.tradeId, { outcome: oc.outcome });
+            updateTradeRecord(oc.tradeId, {
+              outcome: oc.outcome,
+              ...(Number.isFinite(oc.realizedPnL) ? { realizedPnL: oc.realizedPnL } : {}),
+              ...(Number.isFinite(oc.price) ? { exitPrice: oc.price } : {}),
+              ...(Number.isFinite(oc.timestamp) ? { closedAt: oc.timestamp } : {}),
+            });
           }
         }
       }
@@ -413,6 +462,7 @@ export default function Home() {
   function clearHistory() {
     setHistory([]);
     localStorage.removeItem(HISTORY_KEY);
+    syncTradesToSW([]);
   }
 
   // ----- R:R bar geometry -----
@@ -1391,7 +1441,9 @@ export default function Home() {
                             ))}
                             {rec.outcome && rec.outcome !== "pending" && (
                               <span className="ml-auto text-[9px] font-mono text-slate-600">
-                                {rec.outcome === "win"
+                                {rec.realizedPnL != null
+                                  ? `${rec.realizedPnL > 0 ? "+" : ""}${formatMoney(rec.realizedPnL, "USD")}`
+                                  : rec.outcome === "win"
                                   ? `+${formatMoney(rec.actualProfit, "USD")}`
                                   : rec.outcome === "loss"
                                   ? `-${formatMoney(rec.actualLoss, "USD")}`
@@ -1399,6 +1451,12 @@ export default function Home() {
                               </span>
                             )}
                           </div>
+
+                          {rec.exitPrice != null && rec.closedAt != null && (
+                            <div className="mb-2 text-[9px] font-mono text-slate-500">
+                              Closed at {formatPrice(rec.exitPrice, getSymbol(rec.symbolId).decimals)} · {new Date(rec.closedAt).toLocaleString()}
+                            </div>
+                          )}
 
                           {/* Note (existing or add) */}
                           {rec.note ? (
@@ -1497,15 +1555,6 @@ export default function Home() {
         currentSymbolDecimals={symbol.decimals}
         tradeLevels={tradeLevelsForAlarm}
         currentDerivSymbol={symbol.derivSymbol}
-        onOutcome={(symId, outcome, price) => {
-          // Auto-update the most recent pending trade for this symbol
-          const pendingTrade = history.find(
-            (t) => t.symbolId === symId && (t.outcome === "pending" || !t.outcome)
-          );
-          if (pendingTrade) {
-            updateTradeRecord(pendingTrade.id, { outcome, realizedPnL: outcome === "win" ? pendingTrade.actualProfit : -pendingTrade.actualLoss });
-          }
-        }}
       />
     </div>
   );

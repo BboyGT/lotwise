@@ -44,13 +44,11 @@ dev.log.*
 .netlify/
 tool-results/
 upload/
-.zscripts/
+.zscripts/*.log
+.zscripts/*.pid
 scripts/*.png
 lot-archive/
-examples/
-Caddyfile
 mini-services/.gitkeep
-scripts/build.sh
 tests/database-runtime-build.sh
 tests/python-runtime-build.sh
 tests/python-runtime-container.sh

@@ -246,37 +246,25 @@ async function checkTradeOutcome(trade) {
 
   if (price == null) return;
 
-  // Check SL hit → loss
-  if (trade.stopLoss && trade.stopLoss > 0) {
-    const tolerance = trade.stopLoss * 0.0001;
-    if (Math.abs(price - trade.stopLoss) <= tolerance) {
-      const outcome = { tradeId: trade.id, outcome: "loss", price, timestamp: Date.now() };
-      await storePendingOutcome(outcome);
-      await fireTradeNotification(trade, "loss", price);
-      trade.outcome = "loss";
-      const clients = await self.clients.matchAll({ type: "window" });
-      clients.forEach((client) =>
-        client.postMessage({ type: "TRADE_OUTCOME", tradeId: trade.id, outcome: "loss", price })
-      );
-      return;
-    }
-  }
+  const isLong = trade.stopLoss < trade.entry && trade.takeProfit > trade.entry;
+  const isShort = trade.stopLoss > trade.entry && trade.takeProfit < trade.entry;
+  if (!isLong && !isShort) return;
 
-  // Check TP hit → win
-  if (trade.takeProfit && trade.takeProfit > 0) {
-    const tolerance = trade.takeProfit * 0.0001;
-    if (Math.abs(price - trade.takeProfit) <= tolerance) {
-      const outcome = { tradeId: trade.id, outcome: "win", price, timestamp: Date.now() };
-      await storePendingOutcome(outcome);
-      await fireTradeNotification(trade, "win", price);
-      trade.outcome = "win";
-      const clients = await self.clients.matchAll({ type: "window" });
-      clients.forEach((client) =>
-        client.postMessage({ type: "TRADE_OUTCOME", tradeId: trade.id, outcome: "win", price })
-      );
-      return;
-    }
-  }
+  const outcome = (isLong ? price <= trade.stopLoss : price >= trade.stopLoss)
+    ? "loss"
+    : (isLong ? price >= trade.takeProfit : price <= trade.takeProfit)
+      ? "win"
+      : null;
+  if (!outcome) return;
+
+  const timestamp = Date.now();
+  const realizedPnL = outcome === "win" ? trade.actualProfit : -trade.actualLoss;
+  const result = { tradeId: trade.id, outcome, price, timestamp, realizedPnL };
+  await storePendingOutcome(result);
+  await fireTradeNotification(trade, outcome, price);
+  trade.outcome = outcome;
+  const clients = await self.clients.matchAll({ type: "window" });
+  clients.forEach((client) => client.postMessage({ type: "TRADE_OUTCOME", ...result }));
 }
 
 // Store outcome in Cache API (persists across SW restarts)
