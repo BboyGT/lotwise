@@ -213,7 +213,7 @@ export function GTMonogram() {
           }}
           aria-label="Built by GT"
         >
-          <div className="relative flex items-center justify-center overflow-hidden rounded-md px-1 py-0.5 border border-amber-500/20 bg-black/60 backdrop-blur-sm transition-all group-hover:border-amber-500/50 group-hover:scale-110">
+          <div className="relative flex items-center justify-center overflow-hidden rounded-md px-1.5 py-1 border border-amber-500/20 bg-black/60 backdrop-blur-sm transition-all group-hover:border-amber-500/50 group-hover:scale-110">
             {/* Light sweep */}
             <div
               className="absolute inset-0 pointer-events-none"
@@ -224,7 +224,7 @@ export function GTMonogram() {
               }}
             />
 
-            <svg width="56" height="24" viewBox="22 27 153 66" fill="none" className="relative z-10" preserveAspectRatio="xMidYMid meet">
+            <svg width="56" height="24" viewBox="20 25 160 70" fill="none" className="relative z-10" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <linearGradient id="gt-badge-grad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor="#FFD56B" />
