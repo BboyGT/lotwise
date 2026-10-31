@@ -124,7 +124,7 @@ export function GTMonogram() {
               opacity: introDone ? 0 : 1,
             }}
           >
-            <svg width="200" height="120" viewBox="45 20 135 80" fill="none">
+            <svg width="200" height="120" viewBox="20 25 160 70" fill="none">
               <defs>
                 <linearGradient id="gt-grad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor="#FFFCE8" />
@@ -224,7 +224,7 @@ export function GTMonogram() {
               }}
             />
 
-            <svg width="52" height="32" viewBox="45 20 135 80" fill="none" className="relative z-10">
+            <svg width="52" height="32" viewBox="20 25 160 70" fill="none" className="relative z-10">
               <defs>
                 <linearGradient id="gt-badge-grad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor="#FFD56B" />
@@ -275,7 +275,7 @@ export function GTMonogram() {
             </button>
 
             <div className="flex flex-col items-center gap-4">
-              <svg width="120" height="72" viewBox="45 20 135 80" fill="none">
+              <svg width="120" height="72" viewBox="20 25 160 70" fill="none">
                 <defs>
                   <linearGradient id="gt-modal-grad" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#FFFCE8" />
