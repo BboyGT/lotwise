@@ -35,3 +35,22 @@ next-env.d.ts
 # Dev server logs
 dev.log
 dev.log.*
+*.log
+*.pid
+
+# Local scratch and tooling output
+.env.*
+!.env.example
+.netlify/
+tool-results/
+upload/
+.zscripts/
+scripts/*.png
+lot-archive/
+
+# Debug screenshots (keep only the numbered README screenshots 01 to 12)
+download/screenshots/*
+!download/screenshots/0[1-9]-*.png
+!download/screenshots/1[0-2]-*.png
+!download/screenshots/13-logo.png
+!download/screenshots/logo.svg

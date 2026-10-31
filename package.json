@@ -3,23 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000 2>&1 | tee dev.log",
+    "dev": "next dev -p 3000",
     "dev:relay": "cd mini-services/price-relay && bun run dev",
-    "dev:all": "concurrently \"bun run dev\" \"bun run dev:relay\"",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
-    "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
-    "start:all": "concurrently \"bun run start\" \"bun run dev:relay\"",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:relay\"",
+    "build": "next build",
+    "start": "next start",
+    "start:all": "concurrently \"npm run start\" \"npm run dev:relay\"",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit --skipLibCheck",
-    "icons": "python3 scripts/generate-icons.py",
-    "apk:help": "echo 'APK build instructions: See README.md → Deploy section'",
-    "db:push": "prisma db push --accept-data-loss",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "test": "vitest run",
+    "icons": "python3 scripts/generate-icons.py"
   },
   "dependencies": {
-    "@prisma/client": "^6.11.1",
     "@radix-ui/react-collapsible": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-label": "^2.1.7",
@@ -48,10 +43,16 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "bun-types": "^1.3.4",
+    "concurrently": "^9.1.0",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^8.3.5",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20.9.0"
   }
 }

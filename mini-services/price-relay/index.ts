@@ -47,6 +47,20 @@ const ALL_SYNTHETIC_SYMBOLS = [
   "smartidx5R", "smartidx10R", "smartidx20R", "smartidx40R",
 ];
 
+// Deriv symbols are mixed case (R_75, stpidx0p1, smartidx5R), so match case-insensitively
+// and always use the canonical spelling Deriv expects.
+const CANONICAL_SYMBOLS = new Map(ALL_SYNTHETIC_SYMBOLS.map((s) => [s.toLowerCase(), s]));
+const SYMBOL_PATTERN = /^[A-Za-z0-9_]{1,30}$/;
+const MAX_SUBSCRIPTIONS = 100;
+
+function resolveSymbol(raw: string): string {
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {}
+  return CANONICAL_SYMBOLS.get(decoded.toLowerCase()) ?? decoded;
+}
+
 // ---- WebSocket connection ----
 function connect() {
   console.log("[relay] Connecting to Deriv WS...");
@@ -161,7 +175,7 @@ const server = serve({
     // GET /price/:symbol — single price
     const priceMatch = path.match(/^\/price\/(.+)$/);
     if (priceMatch) {
-      const symbol = priceMatch[1].toUpperCase();
+      const symbol = resolveSymbol(priceMatch[1]);
       const data = priceCache.get(symbol);
       if (data) {
         return Response.json({ symbol, price: data.price, timestamp: data.timestamp }, { headers: corsHeaders });
@@ -173,8 +187,11 @@ const server = serve({
     if (path === "/subscribe" && req.method === "POST") {
       try {
         const body = await req.json();
-        const symbol = body.symbol?.toUpperCase();
-        if (symbol) {
+        const symbol = typeof body.symbol === "string" ? resolveSymbol(body.symbol) : undefined;
+        if (symbol && SYMBOL_PATTERN.test(symbol)) {
+          if (!subscribedSymbols.has(symbol) && subscribedSymbols.size >= MAX_SUBSCRIPTIONS) {
+            return Response.json({ error: "Subscription limit reached" }, { status: 429, headers: corsHeaders });
+          }
           subscribeToSymbol(symbol);
           return Response.json({ status: "subscribed", symbol }, { headers: corsHeaders });
         }

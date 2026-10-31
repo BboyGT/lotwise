@@ -35,6 +35,21 @@ export interface CalcResult {
   errors: string[];
 }
 
+/**
+ * Effective pip value per 1 lot in USD.
+ * For USD-base forex pairs (USD/JPY, USD/CHF, USD/CAD, USD/MXN ...) the pip value
+ * depends on the current quote, so it is derived from the entry price:
+ *   pipValue = pipSize * contractSize / price
+ * Everything else uses the static value from the symbol spec.
+ */
+export function effectivePipValue(symbol: SymbolSpec, entry: number): number {
+  const usdBase = symbol.assetClass === "forex" && symbol.id.startsWith("USD");
+  if (usdBase && entry > 0) {
+    return (symbol.pipSize * symbol.contractSize) / entry;
+  }
+  return symbol.pipValuePerLot;
+}
+
 export function calculateTrade(input: CalcInput): CalcResult {
   const errors: string[] = [];
   const { symbol, balance, riskPercent, entry, stopLoss, takeProfit } = input;
@@ -108,24 +123,33 @@ export function calculateTrade(input: CalcInput): CalcResult {
     };
   }
 
+  const pipValue = effectivePipValue(symbol, entry);
   const slPips = slDistance / symbol.pipSize;
   const tpPips = tpDistance / symbol.pipSize;
 
   // risk amount in $
   const riskAmount = (balance * riskPercent) / 100;
 
-  // Loss formula: loss$ = slPips × pipValuePerLot × lot
-  // Solve for lot: lot = riskAmount / (slPips × pipValuePerLot)
+  // Loss formula: loss$ = slPips × pipValue × lot
+  // Solve for lot: lot = riskAmount / (slPips × pipValue)
   // Guard against division by 0
-  const lossPerLot = slPips * symbol.pipValuePerLot;
+  const lossPerLot = slPips * pipValue;
   const exactLot = lossPerLot > 0 ? riskAmount / lossPerLot : 0;
 
   // Round down to nearest lot step
-  const recommendedLot = Math.floor(exactLot / symbol.lotStep) * symbol.lotStep;
+  // The epsilon absorbs floating point noise (e.g. 1.1 - 1.095 = 0.0050000000000000044)
+  // that would otherwise push an exact multiple of the step down by a whole step.
+  const stepCount = exactLot / symbol.lotStep;
+  const roundingTolerance = Math.max(
+    1e-12,
+    Number.EPSILON * Math.max(1, Math.abs(stepCount)) * 4
+  );
+  const steps = Math.floor(stepCount + roundingTolerance);
+  const recommendedLot = Number((steps * symbol.lotStep).toFixed(8));
 
   // Actual $ amounts at recommended lot
-  const actualLoss = slPips * symbol.pipValuePerLot * recommendedLot;
-  const actualProfit = tpPips * symbol.pipValuePerLot * recommendedLot;
+  const actualLoss = slPips * pipValue * recommendedLot;
+  const actualProfit = tpPips * pipValue * recommendedLot;
 
   // R:R ratio
   const rrRatio = slDistance > 0 ? tpDistance / slDistance : 0;
@@ -135,12 +159,12 @@ export function calculateTrade(input: CalcInput): CalcResult {
   const minLotWarning = !minLotOk
     ? {
         minLot: symbol.minLot,
-        lossAtMinLot: slPips * symbol.pipValuePerLot * symbol.minLot,
-        profitAtMinLot: tpPips * symbol.pipValuePerLot * symbol.minLot,
+        lossAtMinLot: slPips * pipValue * symbol.minLot,
+        profitAtMinLot: tpPips * pipValue * symbol.minLot,
         excessRisk:
-          slPips * symbol.pipValuePerLot * symbol.minLot - riskAmount,
+          slPips * pipValue * symbol.minLot - riskAmount,
         excessRiskPercent:
-          (slPips * symbol.pipValuePerLot * symbol.minLot - riskAmount) /
+          (slPips * pipValue * symbol.minLot - riskAmount) /
           (balance || 1) *
           100,
       }

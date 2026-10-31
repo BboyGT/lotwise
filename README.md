@@ -12,8 +12,6 @@
 [![PWA](https://img.shields.io/badge/PWA-5A0EA8?style=for-the-badge&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 
 [![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
-[![Build](https://img.shields.io/badge/Build-Passing-22C55E?style=for-the-badge)]()
-[![Lint](https://img.shields.io/badge/Lint-Clean-22C55E?style=for-the-badge)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-FFB000?style=for-the-badge)]()
 
 </div>
@@ -201,7 +199,7 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) 18+ or [Bun](https://bun.sh/)
+- [Node.js](https://nodejs.org/) 20.9+ (or [Bun](https://bun.sh/) for the optional price relay)
 - A modern browser with WebSocket support
 
 ### Installation
@@ -234,9 +232,12 @@ bun run start
 ### Lint & Type Check
 
 ```bash
-bun run lint          # ESLint
-npx tsc --noEmit      # TypeScript type checking
+npm run lint          # ESLint
+npm run typecheck     # TypeScript type checking
+npm test              # Calculator unit tests (Vitest)
 ```
+
+The calculator is a pure function (`src/lib/calculator.ts`) and is covered by unit tests in `tests/`. For USD-base forex pairs (USD/JPY, USD/CHF, USD/CAD and the USD exotics) the pip value is derived from your entry price, so lot sizes stay correct as the rate moves.
 
 ---
 
@@ -253,8 +254,8 @@ npx tsc --noEmit      # TypeScript type checking
 ### Netlify
 1. Push to GitHub
 2. Go to [netlify.com](https://netlify.com) → Add new site → Import from Git
-3. Build command: `bun run build` or `npm run build`
-4. Publish directory: `.next`
+3. Build command: `npm run build` (already set in `netlify.toml`)
+4. Leave the publish directory empty. Netlify's Next.js runtime detects it automatically
 5. Deploy
 
 ### Local Development
@@ -268,7 +269,7 @@ bun run dev
 For production use with synthetic indices:
 1. Go to [api.deriv.com](https://api.deriv.com) → Register
 2. Create a new app (free, takes 2 minutes)
-3. Replace `app_id=1089` in `src/hooks/use-live-price-v2.ts` and `src/hooks/use-deriv-candles.ts`
+3. Replace `app_id=1089` in `src/hooks/use-live-price-v3.ts` and `src/hooks/use-deriv-candles-v2.ts`
 
 ---
 
@@ -280,27 +281,30 @@ lotwise/
 │   ├── app/
 │   │   ├── layout.tsx          # Root layout + PWA meta tags
 │   │   ├── page.tsx            # Main app (calculator UI)
-│   │   └── globals.css        # Terminal theme + custom styles
+│   │   └── globals-mark.css   # Terminal theme + custom styles
 │   ├── components/
 │   │   ├── alarm-panel.tsx           # Alarm/alerts UI (3 tabs)
 │   │   ├── connection-diagnostic.tsx  # WS reachability tester
 │   │   ├── equity-curve-chart.tsx     # SVG equity curve + win rate
+│   │   ├── gt-mark.tsx                # Author badge
 │   │   ├── legal-modal.tsx            # Terms/Privacy/Disclaimer
 │   │   ├── lotwise-logo.tsx          # Brand SVG logo
 │   │   ├── searchable-symbol-picker.tsx  # Type-to-filter combobox
 │   │   ├── synthetic-candle-chart.tsx     # Candlestick chart for synthetics
 │   │   ├── tradingview-widget.tsx    # TradingView embed widgets
-│   │   └── ui/                        # 22 shadcn/ui components
+│   │   └── ui/                        # shadcn/ui components
 │   ├── hooks/
 │   │   ├── use-alarm-manager.ts       # Alarm detection + sound + notifications
-│   │   ├── use-deriv-candles.ts       # Deriv candle stream + simulator
-│   │   ├── use-live-price-v2.ts       # Multi-source live price hook
+│   │   ├── use-deriv-candles-v2.ts    # Deriv candle stream + simulator
+│   │   ├── use-live-price-v3.ts       # Multi-source live price hook
 │   │   ├── use-pwa.ts                # PWA install + SW registration
 │   │   └── use-toast.ts              # Toast notifications
 │   └── lib/
 │       ├── calculator.ts              # Position sizing engine
 │       ├── sound-engine.ts            # Web Audio synthesized tones
-│       └── symbols.ts                # 112 symbol specs + contract data
+│       └── symbols-v3.ts             # Symbol specs + contract data
+├── mini-services/price-relay/     # Optional Bun service bridging Deriv WS to REST
+├── tests/                         # Vitest unit tests
 ├── public/
 │   ├── logo.svg                # Brand logo
 │   ├── manifest.json           # PWA manifest
