@@ -64,7 +64,7 @@
 ## Features
 
 ### 📊 Position Calculator
-- **162 trading symbols** across 4 asset classes: 35 forex, 48 synthetic indices, 16 real indices, and 63 crypto symbols
+- **160 trading symbols** across 4 asset classes: 35 forex, 46 synthetic indices currently listed by Deriv's public market feed, 16 real indices, and 63 crypto symbols
 - **Exact lot size** auto-calculated from your risk percentage and SL distance
 - **Min-lot validation**: warns when calculated lot is below broker minimum, shows adjusted scenario
 - **Risk-to-reward visualizer**: color-coded bar showing SL zone (red), entry marker (gold), TP zone (green)
@@ -75,7 +75,7 @@
 - **Crypto**: Prices from Binance REST API (63 catalog symbols; availability depends on Binance market listings)
 - **Forex**: Real-time prices from TradingView Scanner API (EUR/USD, GBP/USD, 35 pairs)
 - **Indices**: Real-time prices from TradingView Scanner API (US30, NAS100, DAX, 16 indices)
-- **Synthetic**: Deriv WebSocket API for 48 Boom/Crash/Volatility/Jump/Step and related indices
+- **Synthetic**: Deriv's public WebSocket market-data API for 46 currently listed Boom, Crash, Volatility, Jump, Step, Range Break, and basket indices
 - **One-click price fill**: "Fill Live Entry" auto-populates the entry field
 
 ### 🕯️ Candlestick Charts
@@ -92,7 +92,8 @@
   - 📈 Take Profit: C-E-G-C octave arpeggio
   - 🔔 Custom: E-A perfect fifth
 - **Custom price alerts**: set any target price with "crosses above" or "crosses below" direction
-- **Browser notifications** with OS-level alerts
+- **Browser notifications** with OS-level alerts, including Web Push while the installed app is closed
+- **Scheduled background monitoring** for active alerts and open journal trades; Netlify checks about once per minute, so short crossings can occur between checks
 - **Adjustable volume** + per-event-type toggles
 - **Preview button** to test each alarm before relying on it
 
@@ -108,7 +109,7 @@
 - **Installable** on desktop (Chrome/Edge) and mobile (Chrome/Safari)
 - **Standalone window**: no browser chrome
 - **Offline shell**: service worker caches the UI for instant load
-- **Best-effort background alerts** for supported HTTP price feeds while the browser keeps the service worker active
+- **Background push alerts** through a scheduled Netlify Function; enable browser notifications in the alarm panel and configure VAPID keys on self-hosted Netlify deployments
 - **App shortcuts**: quick-access to Synthetic, Forex, or Crypto tabs
 - **Custom icons**: 192px, 512px, maskable, Apple touch icon, favicon
 
@@ -134,7 +135,7 @@
 | **Indices** | TradingView Scanner API | ✅ Real-time (no key needed) | 16 |
 | **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 48 |
 
-> **Note on Synthetic Indices**: The Deriv WebSocket connection is opened by each visitor's browser. If the visitor's network, provider, or IP cannot reach Deriv, the UI falls back to simulated prices. Launching on localhost or Netlify does not itself change simulated prices into live prices. Automatic journal closure and synthetic alerts require the app page to remain open with a real Deriv feed. Background alerts use supported HTTP feeds and depend on the browser keeping the service worker active.
+> **Note on Synthetic Indices**: The browser connects directly to Deriv's public, no-auth market-data WebSocket. The current endpoint returned real quotes and candles during project verification. If a visitor's network blocks Deriv, the app clearly labels the fallback as simulated and disables live-only journal closure and alerts. Browser push alerts can run while the app is closed after notifications are enabled; the Netlify monitor checks prices about once per minute, so this is not a continuous tick stream and can miss brief crossings between checks.
 
 ---
 
@@ -219,7 +220,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-The app does not require environment variables for local development. An optional Deriv price relay can be started with Bun for service-worker price polling:
+The app does not require environment variables for local development. Browser price feeds connect directly to their providers. Netlify background push monitoring uses `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` environment variables. Keep the private VAPID key in Netlify's secret environment variables; never commit it. An optional Deriv WebSocket-to-HTTP relay is available for local integrations:
 
 ```bash
 npm run dev:relay
@@ -260,27 +261,27 @@ To publish a GitHub Release and container image, update the version in `package.
 3. Select your repo → Deploy
 4. Done! Your app is live with HTTPS (required for PWA)
 
-> **Important**: Deploy to Vercel or any non-cloud-blocked server to get real Deriv synthetic index prices. Cloud IPs (AWS, GCP, Azure) are blocked by Deriv's anti-abuse measures.
+> **Market data**: Deriv prices are requested directly by each visitor's browser from Deriv's public WebSocket. The hosting provider does not turn simulated prices into live prices; the visitor's network must allow the Deriv connection.
 
 ### Netlify
 1. Push to GitHub
 2. Go to [netlify.com](https://netlify.com) → Add new site → Import from Git
 3. Build command: `npm run build` (already set in `netlify.toml`)
-4. Leave the publish directory empty. Netlify's Next.js runtime detects it automatically
+4. Use the detected Next.js runtime with build command `npm run build` and publish directory `.next`
 5. Deploy
 
 ### Local Development
 ```bash
 npm run dev
 # Open http://localhost:3000
-# Live price feeds depend on the provider and your network. Deriv may block cloud or restricted IP addresses.
+# Live prices require the browser to reach the provider's public endpoint.
 ```
 
 ### Register Your Own Deriv App ID (Optional)
-For production use with synthetic indices:
+The current public market-data endpoint requires no app ID. Register an app ID only if you choose to use the legacy WebSocket fallback:
 1. Go to [api.deriv.com](https://api.deriv.com) → Register
 2. Create a new app (free, takes 2 minutes)
-3. Replace `app_id=1089` in `src/hooks/use-live-price-v3.ts` and `src/hooks/use-deriv-candles-v2.ts`
+3. Replace the legacy fallback's `app_id=1089` value in the two Deriv hooks
 
 ---
 
@@ -327,7 +328,7 @@ lotwise/
 
 ---
 
-## 📊 Supported Symbols (162 Total)
+## 📊 Supported Symbols (160 Total)
 
 ### Forex (35 pairs)
 - **Majors** (7): EUR/USD, GBP/USD, USD/JPY, USD/CHF, USD/CAD, AUD/USD, NZD/USD
@@ -338,13 +339,15 @@ lotwise/
 - **Other Crosses** (2): CHF/JPY, CAD/JPY
 - **Exotics** (8): USD/MXN, USD/ZAR, USD/TRY, USD/SGD, USD/HKD, USD/SEK, USD/NOK, USD/DKK
 
-### Synthetic Indices (48 symbols)
-- **Boom & Crash** (10): Boom 300/500/600/900/1000, Crash 300/500/600/900/1000
+### Synthetic Indices (46 symbols)
+- **Boom & Crash** (14): Boom 50/150/300/500/600/900/1000, Crash 50/150/300/500/600/900/1000
 - **Volatility** (5): V10, V25, V50, V75, V100
 - **Volatility 1s** (8): V10, V15, V25, V30, V50, V75, V90, V100 (1s)
 - **Jump** (5): Jump 10/25/50/75/100
-- **Step** (13): Step 0.1 through 0.9, plus Step 200/300/400/500
-- **Bull/Bear/Smart** (7): Bull Market, Bear Market, Z Volatility 75, Smart 5R/10R/20R/40R
+- **Step** (5): Step 100/200/300/400/500
+- **Bull/Bear** (2): Bull Market, Bear Market
+- **Range Break** (2): Range Break 100/200
+- **Baskets** (5): AUD, EUR, GBP, USD, and Gold
 
 ### Real Indices (16 pairs)
 - **US** (4): US30, NAS100, S&P 500, Russell 2000

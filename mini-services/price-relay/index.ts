@@ -15,8 +15,9 @@
  */
 
 import { serve } from "bun";
+import { SYMBOLS } from "../../src/lib/symbols-v3.ts";
 
-const DERIV_WS_URL = "wss://ws.derivws.com/websockets/v3?app_id=1089";
+const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
 const PORT = 3001;
 
 // ---- State ----
@@ -28,26 +29,11 @@ const pendingSubscriptions: string[] = [];
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 // All Deriv synthetic symbols to monitor
-const ALL_SYNTHETIC_SYMBOLS = [
-  // Boom & Crash
-  "BOOM300N", "BOOM500", "BOOM600", "BOOM900", "BOOM1000",
-  "CRASH300N", "CRASH500", "CRASH600", "CRASH900", "CRASH1000",
-  // Volatility
-  "R_10", "R_25", "R_50", "R_75", "R_100",
-  // Volatility 1s
-  "1HZ10V", "1HZ15V", "1HZ25V", "1HZ30V", "1HZ50V", "1HZ75V", "1HZ90V", "1HZ100V",
-  // Jump
-  "JD10", "JD25", "JD50", "JD75", "JD100",
-  // Step
-  "stpidx0p1", "stpidx0p2", "stpidx0p3", "stpidx0p4", "stpidx0p5",
-  "stpidx0p6", "stpidx0p7", "stpidx0p8", "stpidx0p9",
-  "stpidx200", "stpidx300", "stpidx400", "stpidx500",
-  // Bull/Bear/Smart
-  "RDBULL", "RDBEAR", "ZVOLATILITY75",
-  "smartidx5R", "smartidx10R", "smartidx20R", "smartidx40R",
-];
+const ALL_SYNTHETIC_SYMBOLS = SYMBOLS
+  .filter((symbol) => symbol.assetClass === "synthetic" && symbol.derivSymbol)
+  .map((symbol) => symbol.derivSymbol!);
 
-// Deriv symbols are mixed case (R_75, stpidx0p1, smartidx5R), so match case-insensitively
+// Deriv symbols are mixed case (for example R_75 and current Step Index IDs), so match case-insensitively
 // and always use the canonical spelling Deriv expects.
 const CANONICAL_SYMBOLS = new Map(ALL_SYNTHETIC_SYMBOLS.map((s) => [s.toLowerCase(), s]));
 const SYMBOL_PATTERN = /^[A-Za-z0-9_]{1,30}$/;

@@ -254,6 +254,25 @@ export default function Home() {
       takeProfit: parseFloat(stableTakeProfit) || undefined,
     };
   }, [calc.valid, symbol.id, stableEntry, stableStopLoss, stableTakeProfit]);
+  const backgroundTrades = useMemo(() => history
+    .filter((trade) => (trade.outcome === "pending" || !trade.outcome) && trade.stopLoss > 0 && trade.takeProfit > 0)
+    .flatMap((trade) => {
+      const spec = getSymbol(trade.symbolId);
+      if (!spec.derivSymbol && !spec.binanceSymbol && !spec.tvScannerSymbol) return [];
+      return [{
+        id: trade.id,
+        symbolId: trade.symbolId,
+        symbolLabel: trade.symbolLabel,
+        derivSymbol: spec.derivSymbol,
+        binanceSymbol: spec.binanceSymbol,
+        tvScannerSymbol: spec.tvScannerSymbol,
+        entry: trade.entry,
+        stopLoss: trade.stopLoss,
+        takeProfit: trade.takeProfit,
+        actualLoss: trade.actualLoss,
+        actualProfit: trade.actualProfit,
+      }];
+    }), [history]);
 
   // Unit label: forex = "pips", others = "points"
   const unitLabel = symbol.assetClass === "forex" ? "pips" : "points";
@@ -326,7 +345,6 @@ export default function Home() {
     setTradeNote("");
 
     // Sync trades to service worker for background monitoring
-    syncTradesToSW(next);
 
     // Scroll to history section so user sees the saved trade
     setTimeout(() => {
@@ -336,37 +354,6 @@ export default function Home() {
                            ];
       historyCard?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
-  }
-
-  // Sync pending trades to the service worker for background monitoring
-  function syncTradesToSW(trades: TradeRecord[]) {
-    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    // Only sync pending trades that have SL/TP
-    const pendingTrades = trades
-      .filter((t) => {
-        const spec = getSymbol(t.symbolId);
-        return (t.outcome === "pending" || !t.outcome) && t.stopLoss && t.takeProfit &&
-          (spec.binanceSymbol || spec.tvScannerSymbol);
-      })
-      .map((t) => ({
-        id: t.id,
-        symbolId: t.symbolId,
-        symbolLabel: t.symbolLabel,
-        binanceSymbol: getSymbol(t.symbolId).binanceSymbol,
-        tvScannerSymbol: getSymbol(t.symbolId).tvScannerSymbol,
-        derivSymbol: getSymbol(t.symbolId).derivSymbol,
-        entry: t.entry,
-        stopLoss: t.stopLoss,
-        takeProfit: t.takeProfit,
-        actualLoss: t.actualLoss,
-        actualProfit: t.actualProfit,
-        outcome: t.outcome || "pending",
-      }));
-    // Store globally for alarm panel to pick up
-    (window as unknown as { __lotwiseTrades?: typeof pendingTrades }).__lotwiseTrades = pendingTrades;
-    void navigator.serviceWorker.ready.then((registration) => {
-      registration.active?.postMessage({ type: "SYNC_TRADES", trades: pendingTrades });
-    }).catch(() => {});
   }
 
   function updateTradeRecord(id: string, updates: Partial<TradeRecord>) {
@@ -389,7 +376,6 @@ export default function Home() {
     });
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-    syncTradesToSW(next);
   }
 
   function applyBackgroundOutcomes(outcomes: Array<{
@@ -417,7 +403,6 @@ export default function Home() {
     if (next.some((trade, index) => trade !== history[index])) {
       setHistory(next);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-      syncTradesToSW(next);
     }
   }
 
@@ -433,7 +418,6 @@ export default function Home() {
     if (next.some((trade, index) => trade !== history[index])) {
       setHistory(next);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-      syncTradesToSW(next);
     }
   }, [history, livePrice.connected, livePrice.price, livePrice.source, symbol.id]);
 
@@ -441,7 +425,6 @@ export default function Home() {
     const next = history.filter((r) => r.id !== id);
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-    syncTradesToSW(next);
   }
 
   // Listen for background outcomes from the service worker
@@ -490,7 +473,6 @@ export default function Home() {
   function clearHistory() {
     setHistory([]);
     localStorage.removeItem(HISTORY_KEY);
-    syncTradesToSW([]);
   }
 
   // ----- R:R bar geometry -----
@@ -1604,6 +1586,13 @@ export default function Home() {
         currentPriceIsLive={livePrice.connected && livePrice.source !== "simulator" && livePrice.source !== "none"}
         currentSymbolDecimals={symbol.decimals}
         tradeLevels={tradeLevelsForAlarm}
+        backgroundTrades={backgroundTrades}
+        onBackgroundTradeOutcome={(outcome) => updateTradeRecord(outcome.tradeId, {
+          outcome: outcome.outcome,
+          realizedPnL: outcome.realizedPnL,
+          exitPrice: outcome.price,
+          closedAt: outcome.timestamp,
+        })}
       />
     </div>
   );

@@ -5,13 +5,13 @@ import { useEffect, useRef, useState } from "react";
 // ===========================================================================
 // Deriv candles hook — fetches historical candles + streams new ones
 //
-// Uses Deriv's ticks_history endpoint with style=candles.
+// Uses Deriv's current public WebSocket and ticks_history endpoint.
 // Falls back to simulated candles if WS is unreachable (sandbox networks).
 // ===========================================================================
 
 const DERIV_WS_ENDPOINTS = [
+  "wss://api.derivws.com/trading/v1/options/ws/public",
   "wss://ws.derivws.com/websockets/v3?app_id=1089",
-  "wss://ws.binaryws.com/websockets/v3?app_id=1089",
 ];
 
 export interface Candle {
@@ -37,11 +37,6 @@ const FALLBACK_BASE: Record<string, number> = {
   R_10: 6510, R_25: 1520, R_50: 198, R_75: 385460.5, R_100: 1348.5,
   "1HZ10V": 7320, "1HZ15V": 4500, "1HZ25V": 1845, "1HZ30V": 3200, "1HZ50V": 234, "1HZ75V": 412350, "1HZ90V": 8900, "1HZ100V": 1567,
   JD10: 7800, JD25: 1760, JD50: 245, JD75: 412000, JD100: 1420,
-  stpidx0p1: 1000, stpidx0p2: 1000, stpidx0p3: 1000, stpidx0p4: 1000,
-  stpidx0p5: 1000, stpidx0p6: 1000, stpidx0p7: 1000, stpidx0p8: 1000, stpidx0p9: 1000,
-  stpidx200: 1000, stpidx300: 1000, stpidx400: 1000, stpidx500: 1000,
-  RDBULL: 9800, RDBEAR: 9800, ZVOLATILITY75: 385000,
-  smartidx5R: 5000, smartidx10R: 5000, smartidx20R: 5000, smartidx40R: 5000,
 };
 
 /**
@@ -82,9 +77,13 @@ export function useDerivCandles(
 
     let cancelled = false;
     let settled = false;
+    let hasReceivedLiveCandles = false;
+    let simulatorStarted = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     const startSimulator = () => {
       if (cancelled || settled) return;
+      simulatorStarted = true;
       settled = true;
       setSource("simulator");
       setConnected(true);
@@ -159,32 +158,46 @@ export function useDerivCandles(
     };
 
     let connectionTimeout: ReturnType<typeof setTimeout> | null = null;
+    let firstCandleTimeout: ReturnType<typeof setTimeout> | null = null;
     let wsIndex = 0;
 
     const tryConnect = () => {
-      if (cancelled || settled) return;
+      if (cancelled || simulatorStarted) return;
       if (wsIndex >= DERIV_WS_ENDPOINTS.length) {
-        startSimulator();
+        if (hasReceivedLiveCandles) {
+          setConnected(false);
+          setError("Deriv connection lost. Retrying live candles…");
+          reconnectTimer = setTimeout(() => {
+            wsIndex = 0;
+            tryConnect();
+          }, 3000);
+        } else {
+          startSimulator();
+        }
         return;
       }
       const url = DERIV_WS_ENDPOINTS[wsIndex];
       wsIndex += 1;
       let ws: WebSocket;
+      let receivedCandlesOnSocket = false;
       try { ws = new WebSocket(url); } catch { tryConnect(); return; }
       wsRef.current = ws;
 
       connectionTimeout = setTimeout(() => {
-        if (!cancelled && !settled && ws.readyState !== WebSocket.OPEN) {
+        if (!cancelled && wsRef.current === ws && ws.readyState !== WebSocket.OPEN) {
           try { ws.close(); } catch {}
-          tryConnect();
         }
       }, 10000); // 10s timeout — some networks are slow on first WS handshake
 
       ws.onopen = () => {
-        if (cancelled || settled) return;
+        if (cancelled || simulatorStarted) return;
         if (connectionTimeout) clearTimeout(connectionTimeout);
         setSource("deriv-ws");
-        setConnected(true);
+        firstCandleTimeout = setTimeout(() => {
+          if (!cancelled && !receivedCandlesOnSocket && wsRef.current === ws) {
+            try { ws.close(); } catch {}
+          }
+        }, 10000);
         ws.send(JSON.stringify({
           ticks_history: derivSymbol,
           end: "latest",
@@ -196,10 +209,13 @@ export function useDerivCandles(
       };
 
       ws.onmessage = (event) => {
-        if (cancelled || settled && source !== "deriv-ws") return;
+        if (cancelled || simulatorStarted || wsRef.current !== ws) return;
         try {
           const data = JSON.parse(event.data);
           if (data.msg_type === "candles" && data.candles) {
+            if (firstCandleTimeout) clearTimeout(firstCandleTimeout);
+            receivedCandlesOnSocket = true;
+            hasReceivedLiveCandles = true;
             const mapped: Candle[] = data.candles.map((c: { epoch: number; open: number; high: number; low: number; close: number }) => ({
               time: c.epoch,
               open: c.open,
@@ -210,11 +226,16 @@ export function useDerivCandles(
             candlesRef.current = mapped;
             setCandles(mapped);
             setIsLoading(false);
+            setConnected(true);
+            setError(null);
             settled = true;
             if (data.subscription?.id) {
               subscriptionIdRef.current = data.subscription.id;
             }
           } else if (data.msg_type === "ohlc" && data.ohlc) {
+            receivedCandlesOnSocket = true;
+            setConnected(true);
+            setError(null);
             // Live update — patch the latest candle
             const o = data.ohlc;
             const newCandle: Candle = {
@@ -236,24 +257,26 @@ export function useDerivCandles(
             setCandles(next);
           } else if (data.error) {
             setError(data.error.message || "Deriv API error");
-            setIsLoading(false);
-            startSimulator();
+            try { ws.close(); } catch {}
           }
         } catch { /* ignore */ }
       };
 
       ws.onerror = () => {
-        if (cancelled || settled) return;
+        if (cancelled || simulatorStarted) return;
         if (connectionTimeout) clearTimeout(connectionTimeout);
         try { ws.close(); } catch {}
-        tryConnect();
       };
 
       ws.onclose = () => {
-        if (cancelled || settled) return;
+        if (firstCandleTimeout) clearTimeout(firstCandleTimeout);
+        if (cancelled || simulatorStarted) return;
         if (connectionTimeout) clearTimeout(connectionTimeout);
-        if (candlesRef.current.length === 0) tryConnect();
-        else startSimulator();
+        setConnected(false);
+        if (hasReceivedLiveCandles) {
+          wsIndex = DERIV_WS_ENDPOINTS.length;
+        }
+        tryConnect();
       };
     };
 
@@ -262,6 +285,8 @@ export function useDerivCandles(
     return () => {
       cancelled = true;
       if (connectionTimeout) clearTimeout(connectionTimeout);
+      if (firstCandleTimeout) clearTimeout(firstCandleTimeout);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (simTimerRef.current) {
         clearInterval(simTimerRef.current);
         simTimerRef.current = null;
