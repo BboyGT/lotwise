@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { playAlarmSound, type AlarmSoundType } from "@/lib/sound-engine";
+import { toast } from "@/hooks/use-toast";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -172,6 +173,17 @@ export function useAlarmManager(
       };
       setEvents((prev) => [event, ...prev].slice(0, 50));
 
+      const icon = type === "takeProfit" ? "📈" : type === "stopLoss" ? "🛑" : type === "entry" ? "🎯" : "🔔";
+      const isPageVisible = typeof document !== "undefined" && document.visibilityState === "visible";
+      if (isPageVisible) {
+        toast({
+          title: `${icon} ${currentSymbolLabel} alert`,
+          description: message,
+          duration: 8000,
+          variant: type === "stopLoss" || type === "error" ? "destructive" : "default",
+        });
+      }
+
       // Play sound if enabled
       const s = settingsRef.current;
       if (s.enabled) {
@@ -187,8 +199,12 @@ export function useAlarmManager(
       }
 
       // Service worker notifications also work when the installed app is in the background.
-      if (s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted") {
-        const icon = type === "takeProfit" ? "📈" : type === "stopLoss" ? "🛑" : type === "entry" ? "🎯" : "🔔";
+      if (
+        !isPageVisible &&
+        s.browserNotifications &&
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
         const options = { body: message, tag: event.id, icon: "/icon-192.png" };
         if ("serviceWorker" in navigator) {
           void navigator.serviceWorker.getRegistration()

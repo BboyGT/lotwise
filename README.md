@@ -93,7 +93,7 @@
   - 📈 Take Profit: C-E-G-C octave arpeggio
   - 🔔 Custom: E-A perfect fifth
 - **Custom price alerts**: set any target price with "crosses above" or "crosses below" direction
-- **Browser notifications** with OS-level alerts, including Web Push while the installed app is closed when push is configured
+- **Readable in-app alert cards** while Lotwise is open, plus OS notifications and Web Push while it is in the background when push is configured
 - **Scheduled background monitoring** for active alerts and open journal trades; Netlify checks about once per minute, so short crossings can occur between checks
 - **Adjustable volume** + per-event-type toggles
 - **Preview button** to test each alarm before relying on it
