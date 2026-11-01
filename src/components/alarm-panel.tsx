@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Bell, BellRing, Plus, Trash2, X, Volume2, VolumeX, Check, RotateCcw, Settings, AlertTriangle, ArrowUp, ArrowDown, Target } from "lucide-react";
+import { Bell, BellRing, Plus, Trash2, X, Volume2, VolumeX, Check, RotateCcw, Settings, AlertTriangle, ArrowUp, ArrowDown, Target, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,8 @@ import { useAlarmManager } from "@/hooks/use-alarm-manager";
 import { testSound, primeAudioContext } from "@/lib/sound-engine";
 import { formatPrice } from "@/lib/calculator";
 import { getSymbol } from "@/lib/symbols-v3";
+import { DataBackupPanel } from "@/components/data-backup-panel";
+import type { LotwiseBackup } from "@/lib/private-backup";
 
 interface MonitoredTrade {
   id: string;
@@ -56,6 +58,8 @@ interface AlarmPanelProps {
   } | null;
   backgroundTrades: MonitoredTrade[];
   onBackgroundTradeOutcome: (outcome: BackgroundOutcome) => void;
+  backupSnapshot: LotwiseBackup;
+  onRestoreBackup: (data: LotwiseBackup) => void;
 }
 
 export function AlarmPanel({
@@ -70,6 +74,8 @@ export function AlarmPanel({
   tradeLevels,
   backgroundTrades,
   onBackgroundTradeOutcome,
+  backupSnapshot,
+  onRestoreBackup,
 }: AlarmPanelProps) {
   const manager = useAlarmManager(
     currentSymbolId,
@@ -297,7 +303,7 @@ export function AlarmPanel({
 
         <div className="flex-1 overflow-y-auto rm-scroll">
           <Tabs defaultValue="alerts" className="w-full">
-            <TabsList className="grid grid-cols-3 w-full bg-black/40 border border-white/5 h-auto rounded-none border-x-0 border-t-0">
+            <TabsList className="grid grid-cols-4 w-full bg-black/40 border border-white/5 h-auto rounded-none border-x-0 border-t-0">
               <TabsTrigger value="alerts" className="py-2 text-[10px] font-mono uppercase tracking-wider data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-300">
                 Alerts
                 <span className="ml-1 text-[9px] opacity-60">({activeAlerts.length})</span>
@@ -309,6 +315,9 @@ export function AlarmPanel({
               <TabsTrigger value="settings" className="py-2 text-[10px] font-mono uppercase tracking-wider data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-300">
                 <Settings className="h-3 w-3 mr-1" />
                 Settings
+              </TabsTrigger>
+              <TabsTrigger value="data" className="py-2 text-[10px] font-mono uppercase tracking-wider data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-300">
+                <LockKeyhole className="h-3 w-3 mr-1" /> Data
               </TabsTrigger>
             </TabsList>
 
@@ -716,6 +725,16 @@ export function AlarmPanel({
                   </div>
                 </div>
               </div>
+            </TabsContent>
+            <TabsContent value="data" className="mt-0">
+              <DataBackupPanel
+                snapshot={{ ...backupSnapshot, alerts: manager.alerts, alarmSettings: manager.settings }}
+                onRestore={(data) => {
+                  manager.setAlerts(data.alerts);
+                  manager.setSettings(data.alarmSettings);
+                  onRestoreBackup(data);
+                }}
+              />
             </TabsContent>
           </Tabs>
         </div>
