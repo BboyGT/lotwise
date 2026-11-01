@@ -296,6 +296,7 @@ export default function Home() {
   const [legalTab, setLegalTab] = useState<"tos" | "privacy" | "disclaimer">("tos");
   // ----- Journal note for save-trade flow -----
   const [tradeNote, setTradeNote] = useState("");
+  const [saveFeedback, setSaveFeedback] = useState(false);
   const tradeLevelsForAlarm = useMemo(() => {
     if (!calc.valid) return null;
     return {
@@ -368,8 +369,8 @@ export default function Home() {
     setTakeProfit((e + tpDist).toFixed(symbol.decimals));
   }
 
-  function saveTrade() {
-    if (!calc.valid) return;
+  function saveTrade(): boolean {
+    if (!calc.valid) return false;
     const record: TradeRecord = {
       id: typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
@@ -406,6 +407,7 @@ export default function Home() {
                            ];
       historyCard?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
+    return true;
   }
 
   function updateTradeRecord(id: string, updates: Partial<TradeRecord>) {
@@ -911,7 +913,11 @@ export default function Home() {
                       inputMode="decimal"
                       value={balanceInput}
                       onChange={(e) => {
-                        const raw = e.target.value;
+                        const entered = e.target.value.replace(/[^\d.]/g, "");
+                        const [whole, ...fraction] = entered.split(".");
+                        const raw = fraction.length > 0
+                          ? `${whole}.${fraction.join("")}`
+                          : whole;
                         setBalanceInput(raw);
                         const parsed = Number(raw);
                         if (raw.trim() === "") setBalance(0);
@@ -1403,24 +1409,16 @@ export default function Home() {
 
                 {/* Save */}
                 <Button
+                  type="button"
                   onClick={() => {
-                    saveTrade();
-                    // Brief visual feedback
-                    const btn = document.activeElement as HTMLButtonElement;
-                    if (btn) {
-                      const orig = btn.textContent;
-                      btn.textContent = "✓ SAVED TO HISTORY";
-                      btn.classList.add("bg-emerald-500");
-                      setTimeout(() => {
-                        btn.textContent = orig;
-                        btn.classList.remove("bg-emerald-500");
-                      }, 1500);
-                    }
+                    if (!saveTrade()) return;
+                    setSaveFeedback(true);
+                    window.setTimeout(() => setSaveFeedback(false), 1500);
                   }}
                   className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-mono uppercase tracking-wider text-xs font-bold shadow-lg shadow-amber-500/20 transition-all"
                 >
                   <History className="h-3 w-3 mr-1.5" />
-                  Save to History
+                  {saveFeedback ? "Saved to History" : "Save to History"}
                 </Button>
               </>
             )}

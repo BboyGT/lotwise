@@ -2,7 +2,7 @@
 // Monitors crypto (Binance), forex & indices (TradingView Scanner) in background.
 // Stores auto-outcomes in Cache API, syncs to page on reopen.
 
-const CACHE_NAME = "lotwise-v5";
+const CACHE_NAME = "lotwise-v6";
 const STATIC_ASSETS = [
   "/",
   "/logo.svg",
@@ -14,6 +14,16 @@ const STATIC_ASSETS = [
   "/icon-512.png",
   "/apple-touch-icon.png",
 ];
+const STATIC_ASSET_PATHS = new Set(STATIC_ASSETS.filter((path) => path !== "/"));
+
+function isHtmlResponse(response) {
+  return response?.headers.get("content-type")?.toLowerCase().includes("text/html") ?? false;
+}
+
+async function cachedAppShell() {
+  const response = await caches.match("/");
+  return isHtmlResponse(response) ? response : null;
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -41,23 +51,67 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Next.js App Router uses Flight responses for client navigation. They must
+  // stay network-only; caching one as a document can make the browser display
+  // the serialized page payload as text after a button action or navigation.
+  const isNextFlightRequest =
+    url.searchParams.has("_rsc") ||
+    request.headers.has("RSC") ||
+    request.headers.has("Next-Router-State-Tree") ||
+    request.headers.has("Next-Router-Prefetch");
   // API responses contain live configuration and user-specific sync results.
   // Never cache them, even when the caller requests cache: "no-store".
   if (url.pathname.startsWith("/api/") || request.cache === "no-store") return;
   if (url.pathname.startsWith("/_next/webpack-hmr")) return;
 
   if (request.mode === "navigate") {
+    // A real document navigation must request HTML. Strip stale App Router
+    // headers/query data if a browser or an older worker carries them over.
+    let navigationRequest = request;
+    if (isNextFlightRequest) {
+      const navigationUrl = new URL(request.url);
+      navigationUrl.searchParams.delete("_rsc");
+      const headers = new Headers(request.headers);
+      headers.delete("RSC");
+      headers.delete("Next-Router-State-Tree");
+      headers.delete("Next-Router-Prefetch");
+      navigationRequest = new Request(navigationUrl.href, {
+        method: "GET",
+        headers,
+        credentials: request.credentials,
+        redirect: "follow",
+        cache: "no-store",
+      });
+    }
     event.respondWith(
-      fetch(request)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          return res;
+      fetch(navigationRequest).then(async (response) => {
+        if (isHtmlResponse(response)) {
+          await caches.open(CACHE_NAME).then((cache) => cache.put("/", response.clone()));
+          return response;
+        }
+        // Never let a non-document (including an RSC payload) become a browser
+        // page. Prefer the cached app shell when the server returns the wrong
+        // content type for a document navigation.
+        return (await cachedAppShell()) || new Response(
+          "Lotwise could not load the page. Check your connection and try again.",
+          { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } }
+        );
+      })
+        .catch(async () => {
+          return (await cachedAppShell()) || new Response(
+            "Lotwise is unavailable offline. Reconnect and try again.",
+            { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } }
+          );
         })
-        .catch(() => caches.match(request).then((r) => r || caches.match("/")))
     );
     return;
   }
+
+  if (isNextFlightRequest) return;
+
+  // Cache only immutable static assets. Dynamic Next.js responses are never
+  // safe to serve from this cache because they can contain Flight data.
+  if (!STATIC_ASSET_PATHS.has(url.pathname) && !url.pathname.startsWith("/_next/static/")) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {
