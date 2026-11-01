@@ -101,9 +101,11 @@
 - **Preview button** to test each alarm before relying on it
 
 ### 📝 Trade Journal & Equity Curve
+- **Multiple local account profiles**: keep balances, trade histories, and equity curves separate without signing in
+- **Balance roll-forward**: a closed trade's realized profit or loss updates only the account that owns it; active trades do not change the balance until closed
 - **Save trades** with journal notes (up to 200 characters)
 - **Automatic outcomes**: live feed price crossings record win/loss, exit price, close time, and estimated realized P/L; outcomes can also be edited manually
-- **Equity curve chart**: SVG-based, includes completed trades only and orders them by close time
+- **Per-account equity curve**: SVG-based, includes completed trades for the selected account and orders them by close time
 - **Win-rate statistics**: recorded trades, wins, win rate %
 - **Replay function**: reload any saved trade's exact parameters
 - **localStorage persistence**: survives page refresh
@@ -147,7 +149,7 @@
 ### Current limitations
 
 - Forex pip-value conversion quotes are configured for GBP, AUD, NZD, JPY, CHF, and CAD. Calculations that lack a live conversion use the catalog estimate and are marked as estimated.
-- Journal entries, alerts, and app settings are stored on the device by default. The Alerts panel's **Data** tab can export/import a password-encrypted backup file, or optionally save/restore an encrypted snapshot through a Netlify sync vault without an account. Vault updates are manual and replace the previous snapshot. The recovery key is required; if it is lost, the vault cannot be decrypted. Keep a separate copy of the key and continue to keep offline backup files.
+- Journal entries, account profiles, alerts, and app settings are stored on the device by default. The Alerts panel's **Data** tab can export/import a password-encrypted backup file, or optionally save/restore an encrypted snapshot through a Netlify sync vault without an account. Vault updates are manual and replace the previous snapshot. The recovery key is required; if it is lost, the vault cannot be decrypted. Keep a separate copy of the key and continue to keep offline backup files.
 - The repository does not contain a built APK. Lotwise can be installed as a PWA; `scripts/build-apk.sh` documents the manual PWABuilder or Bubblewrap packaging steps.
 - Offline caching covers the app shell only. Live market quotes, chart updates, and price-triggered alerts need an internet connection.
 - Position sizing uses Lotwise's baseline contract and minimum-size assumptions, not a broker-specific instrument specification. Confirm contract size, lot step, and pip/point value with the broker before trading.

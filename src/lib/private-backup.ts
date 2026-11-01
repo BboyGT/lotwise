@@ -6,6 +6,13 @@ export interface BackupSettings {
   riskPercent: number;
 }
 
+export interface BackupTradingAccount {
+  id: string;
+  name: string;
+  balance: number;
+  startingBalance: number;
+}
+
 export interface LotwiseBackup {
   format: "lotwise-private-backup";
   version: 1;
@@ -14,6 +21,8 @@ export interface LotwiseBackup {
   alerts: PriceAlert[];
   alarmSettings: AlarmSettings;
   settings: BackupSettings;
+  accounts?: BackupTradingAccount[];
+  activeAccountId?: string;
 }
 
 interface EncryptedEnvelope {
@@ -97,6 +106,8 @@ function validateBackup(value: unknown): LotwiseBackup {
       !Array.isArray(data.alerts) || !data.alarmSettings || !data.settings ||
       typeof data.settings.balance !== "number" || typeof data.settings.riskPercent !== "number" ||
       typeof data.settings.displayCurrency !== "string" ||
+      (data.accounts !== undefined && (!Array.isArray(data.accounts) || !data.accounts.every(isTradingAccount))) ||
+      (data.activeAccountId !== undefined && typeof data.activeAccountId !== "string") ||
       !data.journal.every(isTradeRecord) || !data.alerts.every(isPriceAlert) ||
       typeof data.alarmSettings.enabled !== "boolean" || typeof data.alarmSettings.notifyEntry !== "boolean" ||
       typeof data.alarmSettings.notifySL !== "boolean" || typeof data.alarmSettings.notifyTP !== "boolean" ||
@@ -107,7 +118,17 @@ function validateBackup(value: unknown): LotwiseBackup {
     throw new Error("The backup contents are incomplete or unsupported.");
   }
   if (data.journal.length > 500 || data.alerts.length > 500) throw new Error("The backup contains too many records.");
+  if (data.accounts && (data.accounts.length === 0 || data.accounts.length > 100)) throw new Error("The backup contains an invalid number of accounts.");
   return data as LotwiseBackup;
+}
+
+function isTradingAccount(value: unknown): value is BackupTradingAccount {
+  if (!value || typeof value !== "object") return false;
+  const account = value as Record<string, unknown>;
+  return typeof account.id === "string" && account.id.length > 0 &&
+    typeof account.name === "string" && account.name.trim().length > 0 &&
+    typeof account.balance === "number" && Number.isFinite(account.balance) && account.balance >= 0 &&
+    typeof account.startingBalance === "number" && Number.isFinite(account.startingBalance) && account.startingBalance >= 0;
 }
 
 function isPriceAlert(value: unknown): value is PriceAlert {
