@@ -110,7 +110,7 @@
 - **Installable** on desktop (Chrome/Edge) and mobile (Chrome/Safari)
 - **Standalone window**: no browser chrome
 - **Offline shell**: service worker caches the UI for instant load
-- **Background push alerts** through a scheduled Netlify Function; enable browser notifications in the alarm panel and configure VAPID keys on self-hosted Netlify deployments
+- **Background push alerts** are implemented with a scheduled Netlify Function; the deployed site needs VAPID keys before closed-app push can be enabled
 - **App shortcuts**: quick-access to Synthetic, Forex, or Crypto tabs
 - **Custom icons**: 192px, 512px, maskable, Apple touch icon, favicon
 
@@ -129,16 +129,26 @@
 
 ## 🔴 Live Price Feeds
 
-| Asset Class | Source | Status | Pairs |
-|---|---|---|---|
-| **Crypto** | Binance REST API | ✅ Real-time (no key needed) | 63 catalog symbols |
-| **Forex** | TradingView Scanner API | ✅ Real-time (no key needed) | 35 |
-| **Indices** | TradingView Scanner API | ✅ Real-time (no key needed) | 16 |
-| **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 46 |
+| Asset Class | Source | Status | Catalog symbols |
+|---|---|---|---:|
+| **Crypto** | Binance public REST API | ✅ Live quotes, no API key | 63 |
+| **Forex** | TradingView Scanner API | ✅ Live quotes, no API key; market-hours dependent | 35 |
+| **Indices** | TradingView Scanner API | ✅ Live quotes, no API key; market-hours dependent | 16 |
+| **Synthetic** | Deriv public WebSocket API | ✅ Live ticks and candles, no API key | 46 |
 
-> **Market data and alerts**: Market prices and synthetic candles come from their listed external providers. Lotwise does not generate substitute prices or candles; Deriv synthetic indices are still synthetic market products, streamed live by Deriv. If a provider or the visitor's network is unavailable, the app shows the last quote with an unavailable status or no quote, and live price alerts and automatic trade closure pause until a live feed returns. Browser push while the app is closed also requires notification permission and VAPID keys configured on the Netlify site. The scheduled monitor checks about once per minute, so it can miss brief crossings between checks.
+> **Market data and alerts**: All four asset classes use live quotes from their listed external providers. The feeds are integrated and do not need provider API keys. Quote freshness still depends on the provider, market hours where applicable, and the visitor's internet connection. Lotwise does not generate substitute prices or candles. Deriv synthetic indices are synthetic market products streamed live by Deriv. If a feed disconnects, its status changes to unavailable; alerts and automatic trade closure wait for live data to resume. Netlify's background monitor checks about once per minute and can miss brief crossings.
+
+> **Notifications**: In-app alerts and browser notifications work while the site is open when permission is granted. Closed-app Web Push requires browser permission and VAPID keys; the production keys are not currently configured (`/api/push/config` returns HTTP 503). Once configured, the Netlify monitor checks about once per minute.
 
 > **Position sizing note**: Forex pip values use a standard 100,000-unit lot and convert the quote currency into USD using live FX data where available. The displayed conversion is still an estimate if that feed is unavailable. Crypto sizing treats one catalog lot as one coin/token. Synthetic and index point values use Lotwise's baseline assumptions; CFD contract sizes and minimum trade increments vary by broker, so verify those figures against your broker before trading.
+
+### Current limitations
+
+- Forex pip-value conversion quotes are configured for GBP, AUD, NZD, JPY, CHF, and CAD. Calculations that lack a live conversion use the catalog estimate and are marked as estimated.
+- Journal entries, alerts, and app settings are stored in the browser's local storage. They do not sync between devices and can be lost if site data is cleared.
+- The repository does not contain a built APK. Lotwise can be installed as a PWA; `scripts/build-apk.sh` documents the manual PWABuilder or Bubblewrap packaging steps.
+- Offline caching covers the app shell only. Live market quotes, chart updates, and price-triggered alerts need an internet connection.
+- Position sizing uses Lotwise's baseline contract and minimum-size assumptions, not a broker-specific instrument specification. Confirm contract size, lot step, and pip/point value with the broker before trading.
 
 ---
 
@@ -264,7 +274,7 @@ To publish a GitHub Release and container image, update the version in `package.
 3. Select your repo → Deploy
 4. Done! Your app is live with HTTPS (required for PWA)
 
-> **Market data**: Prices are requested directly by each visitor's browser from the configured provider. Synthetic quotes and candles require the visitor's network to allow Deriv's WebSocket. The app does not substitute simulated prices when a provider is unavailable.
+> **Market data**: Prices are requested directly by each visitor's browser from the configured provider. Synthetic quotes and candles use Deriv's public WebSocket feed. If a provider or local connection is unavailable, the app reports the feed as unavailable and does not substitute simulated data.
 
 ### Netlify
 1. Push to GitHub
