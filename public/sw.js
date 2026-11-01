@@ -54,20 +54,37 @@ self.addEventListener("fetch", (event) => {
   // Next.js App Router uses Flight responses for client navigation. They must
   // stay network-only; caching one as a document can make the browser display
   // the serialized page payload as text after a button action or navigation.
-  if (
+  const isNextFlightRequest =
     url.searchParams.has("_rsc") ||
     request.headers.has("RSC") ||
     request.headers.has("Next-Router-State-Tree") ||
-    request.headers.has("Next-Router-Prefetch")
-  ) return;
+    request.headers.has("Next-Router-Prefetch");
   // API responses contain live configuration and user-specific sync results.
   // Never cache them, even when the caller requests cache: "no-store".
   if (url.pathname.startsWith("/api/") || request.cache === "no-store") return;
   if (url.pathname.startsWith("/_next/webpack-hmr")) return;
 
   if (request.mode === "navigate") {
+    // A real document navigation must request HTML. Strip stale App Router
+    // headers/query data if a browser or an older worker carries them over.
+    let navigationRequest = request;
+    if (isNextFlightRequest) {
+      const navigationUrl = new URL(request.url);
+      navigationUrl.searchParams.delete("_rsc");
+      const headers = new Headers(request.headers);
+      headers.delete("RSC");
+      headers.delete("Next-Router-State-Tree");
+      headers.delete("Next-Router-Prefetch");
+      navigationRequest = new Request(navigationUrl.href, {
+        method: "GET",
+        headers,
+        credentials: request.credentials,
+        redirect: "follow",
+        cache: "no-store",
+      });
+    }
     event.respondWith(
-      fetch(request).then(async (response) => {
+      fetch(navigationRequest).then(async (response) => {
         if (isHtmlResponse(response)) {
           await caches.open(CACHE_NAME).then((cache) => cache.put("/", response.clone()));
           return response;
@@ -89,6 +106,8 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
+  if (isNextFlightRequest) return;
 
   // Cache only immutable static assets. Dynamic Next.js responses are never
   // safe to serve from this cache because they can contain Flight data.
