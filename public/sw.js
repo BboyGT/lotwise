@@ -2,7 +2,7 @@
 // Monitors crypto (Binance), forex & indices (TradingView Scanner) in background.
 // Stores auto-outcomes in Cache API, syncs to page on reopen.
 
-const CACHE_NAME = "lotwise-v4";
+const CACHE_NAME = "lotwise-v5";
 const STATIC_ASSETS = [
   "/",
   "/logo.svg",
@@ -26,7 +26,9 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+        // Keep durable app data caches (for example pending journal outcomes)
+        // when rotating only the shell cache version.
+        keys.filter((k) => k.startsWith("lotwise-v") && k !== CACHE_NAME).map((k) => caches.delete(k))
       )
     )
   );
@@ -39,6 +41,9 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // API responses contain live configuration and user-specific sync results.
+  // Never cache them, even when the caller requests cache: "no-store".
+  if (url.pathname.startsWith("/api/") || request.cache === "no-store") return;
   if (url.pathname.startsWith("/_next/webpack-hmr")) return;
 
   if (request.mode === "navigate") {
@@ -111,14 +116,19 @@ self.addEventListener("push", (event) => {
   const title = typeof payload.title === "string" ? payload.title : "Lotwise alert";
   const body = typeof payload.body === "string" ? payload.body : "A monitored price level was reached.";
   const url = typeof payload.url === "string" && payload.url.startsWith("/") ? payload.url : "/";
-  event.waitUntil(self.registration.showNotification(title, {
+  const notification = self.registration.showNotification(title, {
     body,
     icon: "/icon-192.png",
     badge: "/icon-192-maskable.png",
     tag: typeof payload.tag === "string" ? payload.tag : undefined,
     requireInteraction: true,
     data: { url, event: payload.event },
-  }));
+  });
+  const notifyOpenClients = self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    if (!payload.event || typeof payload.event !== "object") return;
+    for (const client of clients) client.postMessage({ type: "PUSH_EVENT", event: payload.event });
+  });
+  event.waitUntil(Promise.all([notification, notifyOpenClients]));
 });
 
 async function startBackgroundPolling() {

@@ -3,6 +3,7 @@ import webpush from "web-push";
 import {
   marketKey,
   PUSH_STORE_PREFIX,
+  pushFailureDisposition,
   pushStore,
   type BackgroundLevel,
   type PushDevice,
@@ -97,11 +98,13 @@ async function getHttpPrice(level: BackgroundLevel): Promise<number | null> {
   }
 }
 
-async function sendEvent(device: PushDevice, event: PushEvent): Promise<boolean> {
+type PushDeliveryResult = "sent" | "expired" | "retry";
+
+async function sendEvent(device: PushDevice, event: PushEvent): Promise<PushDeliveryResult> {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   const subject = process.env.VAPID_SUBJECT;
-  if (!publicKey || !privateKey || !subject) return false;
+  if (!device.subscription || !publicKey || !privateKey || !subject) return "retry";
   try {
     webpush.setVapidDetails(subject, publicKey, privateKey);
     await webpush.sendNotification(device.subscription, JSON.stringify({
@@ -111,20 +114,18 @@ async function sendEvent(device: PushDevice, event: PushEvent): Promise<boolean>
       url: "/",
       event,
     }), { TTL: PUSH_TTL_SECONDS });
-    return true;
+    return "sent";
   } catch (error) {
     const statusCode = (error as { statusCode?: number }).statusCode;
-    if (statusCode === 404 || statusCode === 410) return false;
+    const disposition = pushFailureDisposition(statusCode);
+    if (disposition === "expired") return disposition;
     console.warn("[push-monitor] Delivery failed:", statusCode ?? "unknown status");
-    return true;
+    return disposition;
   }
 }
 
 async function monitorPushAlerts() {
-  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY || !process.env.VAPID_SUBJECT) {
-    console.error("[push-monitor] VAPID environment variables are not configured.");
-    return new Response("Push not configured", { status: 503 });
-  }
+  const pushConfigured = !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT);
 
   const store = pushStore();
   const { blobs } = await store.list({ prefix: PUSH_STORE_PREFIX });
@@ -132,7 +133,7 @@ async function monitorPushAlerts() {
   for (const blob of blobs) {
     try {
       const record = await store.get(blob.key, { type: "json" }) as PushDevice | null;
-      if (record?.subscription && (record.alerts?.length || record.trades?.length)) {
+      if (record && (record.alerts?.length || record.trades?.length || record.pendingDeliveries?.length)) {
         devices.push({ key: blob.key, record });
       }
     } catch (error) {
@@ -206,15 +207,46 @@ async function monitorPushAlerts() {
       }
     }
 
-    if (events.length > 0) {
-      const delivered = await Promise.all(events.map((event) => sendEvent(record, event)));
-      triggered += events.length;
-      if (delivered.some((ok) => !ok)) {
-        await store.delete(key);
+    if (pushConfigured && record.subscription && (events.length > 0 || record.pendingDeliveries?.length)) {
+      const deliveries = [
+        ...(record.pendingDeliveries ?? []),
+        ...events.map((event) => ({ event, attempts: 0 })),
+      ];
+      const results = await Promise.all(deliveries.map(async (delivery) => ({
+        delivery,
+        result: await sendEvent(record, delivery.event),
+      })));
+      if (results.some(({ result }) => result === "expired")) {
+        // Keep server-side monitoring and the journal event. The page will
+        // provide a fresh subscription next time it opens.
+        record.subscription = undefined;
+        record.pendingDeliveries = [];
+        record.pendingEvents = [...(record.pendingEvents ?? []), ...events].slice(-100);
+        record.alerts = nextAlerts;
+        record.trades = nextTrades;
+        for (const level of [...nextAlerts, ...nextTrades]) {
+          const priceKey = marketKey(level);
+          const price = currentPrice(level);
+          if (priceKey && price) record.previousPrices[priceKey] = price;
+        }
+        record.updatedAt = Date.now();
+        await store.setJSON(key, record);
         continue;
       }
-      record.pendingEvents = [...(record.pendingEvents ?? []), ...events].slice(-100);
+      const retryDeliveries = results.flatMap(({ delivery, result }) =>
+        result === "retry" ? [{ event: delivery.event, attempts: delivery.attempts + 1 }] : []
+      );
+      record.pendingDeliveries = retryDeliveries.slice(-100);
+      const deliveredCount = results.filter(({ result }) => result === "sent").length;
+      triggered += deliveredCount;
+    } else {
+      // Do not strand a delivery queue when push is temporarily unavailable.
+      // The outcome itself remains available in pendingEvents for journal sync.
+      record.pendingDeliveries = [];
     }
+    // Keep outcomes available to the app even when push is temporarily
+    // unavailable or this device's subscription has expired.
+    record.pendingEvents = [...(record.pendingEvents ?? []), ...events].slice(-100);
     record.alerts = nextAlerts;
     record.trades = nextTrades;
     for (const level of [...nextAlerts, ...nextTrades]) {

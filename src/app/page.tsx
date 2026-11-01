@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ASSET_CLASSES,
   AssetClass,
@@ -132,7 +132,12 @@ export default function Home() {
 
   // ----- history -----
   const [history, setHistory] = useState<TradeRecord[]>([]);
+  const historyRef = useRef(history);
   const [historyOpen, setHistoryOpen] = useState<boolean>(true);
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
 
   // ----- hydrated flag for localStorage load -----
   const [hydrated, setHydrated] = useState(false);
@@ -148,11 +153,22 @@ export default function Home() {
         }
       }
       if (saved) {
-        const obj = JSON.parse(saved);
-        if (obj.displayCurrency) setDisplayCurrency(obj.displayCurrency);
-        if (obj.balance) setBalance(obj.balance);
-        if (obj.riskPercent) setRiskPercent(obj.riskPercent);
+        try {
+          const obj = JSON.parse(saved);
+          if (obj && typeof obj === "object") {
+            if (CURRENCIES.includes(obj.displayCurrency)) setDisplayCurrency(obj.displayCurrency);
+            if (Number.isFinite(obj.balance) && obj.balance >= 0) setBalance(obj.balance);
+            if (Number.isFinite(obj.riskPercent) && obj.riskPercent >= 0 && obj.riskPercent <= 100) setRiskPercent(obj.riskPercent);
+          }
+        } catch {
+          // Ignore invalid preferences without preventing journal recovery.
+        }
       }
+    } catch {
+      // Browser storage may be disabled; the calculator remains usable.
+    }
+
+    try {
       let hist = localStorage.getItem(HISTORY_KEY);
       if (!hist) {
         for (const k of LEGACY_HISTORY_KEYS) {
@@ -160,7 +176,13 @@ export default function Home() {
           if (hist) break;
         }
       }
-      if (hist) setHistory(JSON.parse(hist));
+      if (hist) {
+        const parsed: unknown = JSON.parse(hist);
+        if (Array.isArray(parsed)) {
+          historyRef.current = parsed as TradeRecord[];
+          setHistory(historyRef.current);
+        }
+      }
     } catch {
       // ignore malformed storage
     }
@@ -361,7 +383,8 @@ export default function Home() {
       note: tradeNote.trim() || undefined,
       outcome: "pending",
     };
-    const next = [record, ...history].slice(0, 50);
+    const next = [record, ...historyRef.current].slice(0, 50);
+    historyRef.current = next;
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
     setTradeNote("");
@@ -379,7 +402,7 @@ export default function Home() {
   }
 
   function updateTradeRecord(id: string, updates: Partial<TradeRecord>) {
-    const next = history.map((r) => {
+    const next = historyRef.current.map((r) => {
       if (r.id !== id) return r;
       const merged = { ...r, ...updates };
       if (updates.outcome === "pending") {
@@ -396,6 +419,7 @@ export default function Home() {
       }
       return merged;
     });
+    historyRef.current = next;
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   }
@@ -408,7 +432,8 @@ export default function Home() {
     timestamp?: number;
   }>) {
     const byId = new Map(outcomes.map((outcome) => [outcome.tradeId, outcome]));
-    const next = history.map((trade) => {
+    const currentHistory = historyRef.current;
+    const next = currentHistory.map((trade) => {
       const result = byId.get(trade.id);
       if (!result || !result.outcome || result.outcome === "pending") return trade;
       return {
@@ -422,7 +447,8 @@ export default function Home() {
         closedAt: Number.isFinite(result.timestamp) ? result.timestamp : Date.now(),
       };
     });
-    if (next.some((trade, index) => trade !== history[index])) {
+    if (next.some((trade, index) => trade !== currentHistory[index])) {
+      historyRef.current = next;
       setHistory(next);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
     }
@@ -438,19 +464,25 @@ export default function Home() {
       return resolved ? { ...trade, ...resolved, closedAt } : trade;
     });
     if (next.some((trade, index) => trade !== history[index])) {
+      historyRef.current = next;
       setHistory(next);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
     }
   }, [history, livePrice.connected, livePrice.price, livePrice.source, symbol.id]);
 
   function deleteTrade(id: string) {
-    const next = history.filter((r) => r.id !== id);
+    const next = historyRef.current.filter((r) => r.id !== id);
+    historyRef.current = next;
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   }
 
   // Listen for background outcomes from the service worker
   useEffect(() => {
+    // The service worker clears delivered outcomes after responding. Wait
+    // until localStorage has populated the journal so those outcomes can be
+    // applied instead of being discarded against an empty initial state.
+    if (!hydrated) return;
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 
     const handleMessage = (event: MessageEvent) => {
@@ -479,7 +511,7 @@ export default function Home() {
     return () => {
       navigator.serviceWorker.removeEventListener("message", handleMessage);
     };
-  }, [history]);
+  }, [hydrated]);
 
   function replayTrade(rec: TradeRecord) {
     setAssetClass(rec.assetClass);
@@ -493,6 +525,7 @@ export default function Home() {
   }
 
   function clearHistory() {
+    historyRef.current = [];
     setHistory([]);
     localStorage.removeItem(HISTORY_KEY);
   }
@@ -502,6 +535,7 @@ export default function Home() {
     const restoredCurrency = CURRENCIES.includes(data.settings.displayCurrency as CurrencyCode)
       ? data.settings.displayCurrency as CurrencyCode
       : "USD";
+    historyRef.current = restoredHistory;
     setHistory(restoredHistory);
     setDisplayCurrency(restoredCurrency);
     setBalance(data.settings.balance);

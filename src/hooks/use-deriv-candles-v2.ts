@@ -22,6 +22,13 @@ export interface Candle {
   close: number;
 }
 
+export function isValidCandle(candle: Candle): boolean {
+  return Number.isFinite(candle.time) && candle.time > 0 &&
+    [candle.open, candle.high, candle.low, candle.close].every((price) => Number.isFinite(price) && price > 0) &&
+    candle.high >= Math.max(candle.open, candle.close, candle.low) &&
+    candle.low <= Math.min(candle.open, candle.close, candle.high);
+}
+
 interface UseDerivCandlesResult {
   candles: Candle[];
   isLoading: boolean;
@@ -130,17 +137,23 @@ export function useDerivCandles(
         if (cancelled || wsRef.current !== ws) return;
         try {
           const data = JSON.parse(event.data);
-          if (data.msg_type === "candles" && data.candles) {
+          if (data.msg_type === "candles" && Array.isArray(data.candles)) {
+            const mapped: Candle[] = data.candles.map((c: { epoch: number; open: number; high: number; low: number; close: number }) => ({
+              time: Number(c.epoch),
+              open: Number(c.open),
+              high: Number(c.high),
+              low: Number(c.low),
+              close: Number(c.close),
+            })).filter(isValidCandle);
+            if (mapped.length === 0) {
+              setError("Deriv returned no valid candles.");
+              setIsLoading(false);
+              try { ws.close(); } catch {}
+              return;
+            }
             if (firstCandleTimeout) clearTimeout(firstCandleTimeout);
             receivedCandlesOnSocket = true;
             hasReceivedLiveCandles = true;
-            const mapped: Candle[] = data.candles.map((c: { epoch: number; open: number; high: number; low: number; close: number }) => ({
-              time: c.epoch,
-              open: c.open,
-              high: c.high,
-              low: c.low,
-              close: c.close,
-            }));
             candlesRef.current = mapped;
             setCandles(mapped);
             setIsLoading(false);
@@ -150,18 +163,22 @@ export function useDerivCandles(
               subscriptionIdRef.current = data.subscription.id;
             }
           } else if (data.msg_type === "ohlc" && data.ohlc) {
-            receivedCandlesOnSocket = true;
-            setConnected(true);
-            setError(null);
             // Live update — patch the latest candle
             const o = data.ohlc;
             const newCandle: Candle = {
-              time: o.open_time,
-              open: parseFloat(o.open),
-              high: parseFloat(o.high),
-              low: parseFloat(o.low),
-              close: parseFloat(o.close),
+              time: Number(o.open_time),
+              open: Number(o.open),
+              high: Number(o.high),
+              low: Number(o.low),
+              close: Number(o.close),
             };
+            if (!isValidCandle(newCandle)) return;
+            receivedCandlesOnSocket = true;
+            hasReceivedLiveCandles = true;
+            setConnected(true);
+            setError(null);
+            if (firstCandleTimeout) clearTimeout(firstCandleTimeout);
+            setIsLoading(false);
             const next = [...candlesRef.current];
             const lastIdx = next.length - 1;
             if (lastIdx >= 0 && next[lastIdx].time === newCandle.time) {
