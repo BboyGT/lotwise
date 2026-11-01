@@ -114,6 +114,7 @@ export function EquityCurveChart({
 
   // Win rate
   const completedTrades = trades.filter((t) => t.outcome && t.outcome !== "pending");
+  const activeTradesCount = trades.length - completedTrades.length;
   const wins = completedTrades.filter((t) => t.outcome === "win").length;
   const winRate = completedTrades.length > 0 ? (wins / completedTrades.length) * 100 : 0;
 
@@ -152,6 +153,12 @@ export function EquityCurveChart({
           </p>
         </div>
       </div>
+
+      <p className="text-[9px] font-mono text-slate-500">
+        {activeTradesCount > 0
+          ? `${activeTradesCount} active ${activeTradesCount === 1 ? "trade" : "trades"} · curve adds its profit or loss when it closes.`
+          : "Curve shows realized profit and loss from closed trades."}
+      </p>
 
       {/* SVG chart */}
       <div className="relative">
