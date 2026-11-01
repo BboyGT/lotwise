@@ -1,6 +1,5 @@
 // Lotwise service worker — PWA shell caching + background price monitoring
 // Monitors crypto (Binance), forex & indices (TradingView Scanner) in background.
-// Monitors synthetic indices via the price-relay mini-service (localhost:3001).
 // Stores auto-outcomes in Cache API, syncs to page on reopen.
 
 const CACHE_NAME = "lotwise-v3";
@@ -75,6 +74,8 @@ self.addEventListener("fetch", (event) => {
 let backgroundAlerts = [];
 let backgroundTrades = []; // trades with SL/TP to monitor
 let pollInterval = null;
+let pollInProgress = false;
+const previousPrices = new Map();
 const OUTCOMES_CACHE = "lotwise-outcomes";
 
 self.addEventListener("message", (event) => {
@@ -104,9 +105,12 @@ async function startBackgroundPolling() {
   if (pollInterval) return;
 
   pollInterval = setInterval(async () => {
+    if (pollInProgress) return;
+    pollInProgress = true;
+    try {
     // 1. Check custom alerts (Binance only — original behavior)
     for (const alert of backgroundAlerts) {
-      if (alert.binanceSymbol || alert.derivSymbol) {
+      if (alert.binanceSymbol || alert.tvScannerSymbol || alert.derivSymbol) {
         await checkAlertPrice(alert);
       }
     }
@@ -120,6 +124,9 @@ async function startBackgroundPolling() {
     // Stop polling if nothing to monitor
     if (backgroundAlerts.length === 0 && backgroundTrades.filter(t => t.outcome === "pending").length === 0) {
       stopBackgroundPolling();
+    }
+    } finally {
+      pollInProgress = false;
     }
   }, 5000);
 }
@@ -163,29 +170,13 @@ async function checkAlertPrice(alert) {
     } catch {}
   }
 
-  // Try price-relay for synthetic indices
-  if (price == null && alert.derivSymbol) {
-    try {
-      const res = await fetch(
-        `/api/relay?XTransformPort=3001&symbol=${alert.derivSymbol}`,
-        { cache: "no-store" }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (typeof data.price === "number") price = data.price;
-      }
-    } catch {}
-  }
-
   if (price == null) return;
 
-  const tolerance = alert.targetPrice * 0.0001;
-  let hit = false;
-  if (alert.direction === "above" && price >= alert.targetPrice - tolerance) {
-    hit = true;
-  } else if (alert.direction === "below" && price <= alert.targetPrice + tolerance) {
-    hit = true;
-  }
+  const previous = previousPrices.get(`alert:${alert.id}`);
+  previousPrices.set(`alert:${alert.id}`, price);
+  const hit = alert.direction === "above"
+    ? previous != null && previous < alert.targetPrice && price >= alert.targetPrice
+    : previous != null && previous > alert.targetPrice && price <= alert.targetPrice;
 
   if (hit) {
     await fireBackgroundNotification(alert, price);
@@ -229,30 +220,19 @@ async function checkTradeOutcome(trade) {
     } catch {}
   }
 
-  // Try price-relay for synthetic indices (Deriv WS → REST bridge)
-  // The relay runs on localhost:3001 when deployed alongside the app
-  if (price == null && trade.derivSymbol) {
-    try {
-      const res = await fetch(
-        `/api/relay?XTransformPort=3001&symbol=${trade.derivSymbol}`,
-        { cache: "no-store" }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (typeof data.price === "number") price = data.price;
-      }
-    } catch {}
-  }
-
   if (price == null) return;
+
+  const previous = previousPrices.get(`trade:${trade.id}`);
+  previousPrices.set(`trade:${trade.id}`, price);
+  if (previous == null) return;
 
   const isLong = trade.stopLoss < trade.entry && trade.takeProfit > trade.entry;
   const isShort = trade.stopLoss > trade.entry && trade.takeProfit < trade.entry;
   if (!isLong && !isShort) return;
 
-  const outcome = (isLong ? price <= trade.stopLoss : price >= trade.stopLoss)
+  const outcome = (isLong ? previous > trade.stopLoss && price <= trade.stopLoss : previous < trade.stopLoss && price >= trade.stopLoss)
     ? "loss"
-    : (isLong ? price >= trade.takeProfit : price <= trade.takeProfit)
+    : (isLong ? previous < trade.takeProfit && price >= trade.takeProfit : previous > trade.takeProfit && price <= trade.takeProfit)
       ? "win"
       : null;
   if (!outcome) return;

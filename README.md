@@ -1,10 +1,10 @@
 <div align="center">
 
-# ⚡ Lotwise
+<h1><img src="public/logo.svg" alt="Lotwise logo" width="48"><br>Lotwise</h1>
 
-### Position Terminal — Trading Risk Calculator
+### Position Terminal: Trading Risk Calculator
 
-**Calculate exact lot size, risk, and reward for Forex, Synthetic Indices, Crypto & Real Indices — with live prices, alarms, and PWA install.**
+**Calculate exact lot size, risk, and reward for Forex, Synthetic Indices, Crypto & Real Indices with live prices, alarms, and PWA install.**
 
 [![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -56,61 +56,61 @@
 | No broker minimum check | **Min-lot validation** with adjusted scenario warnings |
 | No alerts | **Sound alarms + browser notifications** for entry/SL/TP hits |
 | No trade journal | **Built-in journal + equity curve** with win-rate tracking |
-| Web only | **Installable PWA** — works offline, launches like a native app |
+| Web only | **Installable PWA**: works offline, launches like a native app |
 | Risk capped at 1-3% | **Adjustable 0.5%–100%** with high-risk warnings |
 
 ---
 
-## ✨ Features
+## Features
 
 ### 📊 Position Calculator
 - **162 trading symbols** across 4 asset classes: 35 forex, 48 synthetic indices, 16 real indices, and 63 crypto symbols
 - **Exact lot size** auto-calculated from your risk percentage and SL distance
-- **Min-lot validation** — warns when calculated lot is below broker minimum, shows adjusted scenario
-- **Risk-to-reward visualizer** — color-coded bar showing SL zone (red), entry marker (gold), TP zone (green)
+- **Min-lot validation**: warns when calculated lot is below broker minimum, shows adjusted scenario
+- **Risk-to-reward visualizer**: color-coded bar showing SL zone (red), entry marker (gold), TP zone (green)
 - **0.5%–100% risk slider** with quick presets (1%, 2%, 5%, 10%, 25%, 50%, 100%)
-- **Multi-currency display** — switch between USD, EUR, GBP, NGN, JPY
+- **Multi-currency display**: switch between USD, EUR, GBP, NGN, JPY
 
 ### 📈 Live Price Feeds
 - **Crypto**: Prices from Binance REST API (63 catalog symbols; availability depends on Binance market listings)
 - **Forex**: Real-time prices from TradingView Scanner API (EUR/USD, GBP/USD, 35 pairs)
 - **Indices**: Real-time prices from TradingView Scanner API (US30, NAS100, DAX, 16 indices)
 - **Synthetic**: Deriv WebSocket API for 48 Boom/Crash/Volatility/Jump/Step and related indices
-- **One-click price fill** — "Fill Live Entry" auto-populates the entry field
+- **One-click price fill**: "Fill Live Entry" auto-populates the entry field
 
 ### 🕯️ Candlestick Charts
 - **TradingView widget** for Forex, Indices & Crypto (with symbol search + drawing tools)
 - **Custom candlestick chart** for Synthetic indices (TradingView Lightweight Charts + Deriv candles API)
-- **6 timeframes** — 1m, 5m, 15m, 1h, 4h, 1D
+- **6 timeframes**: 1m, 5m, 15m, 1h, 4h, 1D
 - **Volume histogram** + crosshair + live price overlay
 
 ### 🔔 Alarm & Notification System
 - **Auto-detect** when live price hits your entry, stop loss, or take profit
-- **4 distinct sound profiles** (synthesized via Web Audio API — no audio files):
+- **4 distinct sound profiles** (synthesized via Web Audio API: no audio files):
   - 🎯 Entry: C-E-G major triad ascending
   - 🛑 Stop Loss: A-F-C descending sawtooth
   - 📈 Take Profit: C-E-G-C octave arpeggio
   - 🔔 Custom: E-A perfect fifth
-- **Custom price alerts** — set any target price with "crosses above" or "crosses below" direction
+- **Custom price alerts**: set any target price with "crosses above" or "crosses below" direction
 - **Browser notifications** with OS-level alerts
 - **Adjustable volume** + per-event-type toggles
 - **Preview button** to test each alarm before relying on it
 
 ### 📝 Trade Journal & Equity Curve
 - **Save trades** with journal notes (up to 200 characters)
-- **Automatic outcomes** — live feed price crossings record win/loss, exit price, close time, and estimated realized P/L; outcomes can also be edited manually
-- **Equity curve chart** — SVG-based, includes completed trades only and orders them by close time
-- **Win-rate statistics** — recorded trades, wins, win rate %
-- **Replay function** — reload any saved trade's exact parameters
-- **localStorage persistence** — survives page refresh
+- **Automatic outcomes**: live feed price crossings record win/loss, exit price, close time, and estimated realized P/L; outcomes can also be edited manually
+- **Equity curve chart**: SVG-based, includes completed trades only and orders them by close time
+- **Win-rate statistics**: recorded trades, wins, win rate %
+- **Replay function**: reload any saved trade's exact parameters
+- **localStorage persistence**: survives page refresh
 
-### 📱 PWA — Install as a Native App
+### 📱 PWA: Install as a Native App
 - **Installable** on desktop (Chrome/Edge) and mobile (Chrome/Safari)
-- **Standalone window** — no browser chrome
-- **Offline shell** — service worker caches the UI for instant load
-- **Background alarm polling** for crypto alerts (even when app is closed)
-- **App shortcuts** — quick-access to Synthetic, Forex, or Crypto tabs
-- **Custom icons** — 192px, 512px, maskable, Apple touch icon, favicon
+- **Standalone window**: no browser chrome
+- **Offline shell**: service worker caches the UI for instant load
+- **Best-effort background alerts** for supported HTTP price feeds while the browser keeps the service worker active
+- **App shortcuts**: quick-access to Synthetic, Forex, or Crypto tabs
+- **Custom icons**: 192px, 512px, maskable, Apple touch icon, favicon
 
 ### 🔍 Searchable Symbol Picker
 - **Type-to-filter** across all sub-categories simultaneously
@@ -120,7 +120,7 @@
 
 ### ⚖️ Legal & Compliance
 - **Terms of Service** (10 sections covering service nature, no financial advice, risk disclosure)
-- **Privacy Policy** (9 sections — privacy-first, no tracking, localStorage only)
+- **Privacy Policy** (9 sections: privacy-first, no tracking, localStorage only)
 - **Risk Disclaimer** (10 sections + problem gambling help links)
 
 ---
@@ -134,43 +134,43 @@
 | **Indices** | TradingView Scanner API | ✅ Real-time (no key needed) | 16 |
 | **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 48 |
 
-> **Note on Synthetic Indices**: The Deriv WebSocket connection is opened by each visitor's browser. If the visitor's network, provider, or IP cannot reach Deriv, the UI falls back to simulated prices. Launching on localhost or Netlify does not itself change simulated prices into live prices. Automatic journal closure uses available real price feeds while the app is open; a background service worker may monitor supported HTTP feeds when the browser permits it.
+> **Note on Synthetic Indices**: The Deriv WebSocket connection is opened by each visitor's browser. If the visitor's network, provider, or IP cannot reach Deriv, the UI falls back to simulated prices. Launching on localhost or Netlify does not itself change simulated prices into live prices. Automatic journal closure and synthetic alerts require the app page to remain open with a real Deriv feed. Background alerts use supported HTTP feeds and depend on the browser keeping the service worker active.
 
 ---
 
 ## 📸 Screenshots
 
-### Desktop — Position Calculator with Live Candlestick Chart
+### Desktop: Position Calculator with Live Candlestick Chart
 <img src="download/screenshots/01-synthetic-overview.png" alt="Synthetic Overview" width="100%">
 
-### Calculation Output — Lot Size, Risk:Reward, Stats
+### Calculation Output: Lot Size, Risk:Reward, Stats
 <img src="download/screenshots/02-calc-output.png" alt="Calc Output" width="100%">
 
 ### Risk:Reward Visual Bar + Min-Lot Warning
 <img src="download/screenshots/03-rr-bar.png" alt="R:R Bar" width="100%">
 
-### Crypto — Real Binance Live Prices
+### Crypto: Real Binance Live Prices
 <img src="download/screenshots/04-crypto-btc.png" alt="Crypto BTC" width="100%">
 
 ### Crypto Position Calculation
 <img src="download/screenshots/05-crypto-calc.png" alt="Crypto Calc" width="100%">
 
-### Forex — Real EUR/USD Live Price
+### Forex: Real EUR/USD Live Price
 <img src="download/screenshots/06-forex-eurusd.png" alt="Forex EURUSD" width="100%">
 
 ### Alarm & Notification Panel
 <img src="download/screenshots/07-alarm-panel.png" alt="Alarm Panel" width="100%">
 
-### Alarm Settings — Sound Profiles + Volume
+### Alarm Settings: Sound Profiles + Volume
 <img src="download/screenshots/08-alarm-settings.png" alt="Alarm Settings" width="100%">
 
 ### Equity Curve + Trade Journal
 <img src="download/screenshots/09-equity-curve.png" alt="Equity Curve" width="100%">
 
-### Legal Modal — Terms of Service
+### Legal Modal: Terms of Service
 <img src="download/screenshots/10-legal-modal.png" alt="Legal Modal" width="100%">
 
-### Mobile — Full Responsive Layout
+### Mobile: Full Responsive Layout
 <p float="left">
   <img src="download/screenshots/11-mobile-view.png" alt="Mobile View" width="45%">
   <img src="download/screenshots/12-mobile-calc.png" alt="Mobile Calc" width="45%">
@@ -254,7 +254,7 @@ To publish a GitHub Release and container image, update the version in `package.
 
 ## 🌐 Deploy Your Own
 
-### Vercel (Recommended — Free)
+### Vercel (Recommended: Free)
 1. Push this repo to GitHub
 2. Go to [vercel.com](https://vercel.com) → Import Project
 3. Select your repo → Deploy
@@ -376,7 +376,7 @@ See the in-app **Disclaimer** tab (footer link) for the full risk disclosure.
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License: see the [LICENSE](LICENSE) file for details.
 
 ---
 

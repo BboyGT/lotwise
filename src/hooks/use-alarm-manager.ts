@@ -39,6 +39,18 @@ export interface ActiveTradeLevels {
   takeProfit?: number;
 }
 
+export function didCrossPriceLevel(
+  previous: number | undefined,
+  current: number,
+  target: number,
+  direction: "above" | "below"
+): boolean {
+  if (previous == null || ![previous, current, target].every(Number.isFinite)) return false;
+  return direction === "above"
+    ? previous < target && current >= target
+    : previous > target && current <= target;
+}
+
 // ---------------------------------------------------------------------------
 // Event emission
 // ---------------------------------------------------------------------------
@@ -71,37 +83,25 @@ const DEFAULT_SETTINGS: AlarmSettings = {
 export function useAlarmManager(
   currentSymbolId: string,
   currentPrice: number | null,
+  currentPriceIsLive: boolean,
   currentSymbolLabel: string,
-  tradeLevels: ActiveTradeLevels | null,
-  onOutcome?: (symbolId: string, outcome: "win" | "loss", price: number) => void
+  tradeLevels: ActiveTradeLevels | null
 ) {
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [settings, setSettings] = useState<AlarmSettings>(DEFAULT_SETTINGS);
   const [events, setEvents] = useState<AlarmEvent[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
 
   // Refs for use inside callbacks without re-subscribing
-  const alertsRef = useRef<PriceAlert[]>([]);
   const settingsRef = useRef<AlarmSettings>(DEFAULT_SETTINGS);
-  const tradeLevelsRef = useRef<ActiveTradeLevels | null>(null);
   const firedTradeLevelsRef = useRef<Set<string>>(new Set());
-  const onOutcomeRef = useRef(onOutcome);
-
-  useEffect(() => {
-    onOutcomeRef.current = onOutcome;
-  }, [onOutcome]); // dedupe: don't re-fire same level until price moves away
-
-  useEffect(() => {
-    alertsRef.current = alerts;
-  }, [alerts]);
+  const previousPriceRef = useRef(new Map<string, number>());
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
-  useEffect(() => {
-    tradeLevelsRef.current = tradeLevels;
-  }, [tradeLevels]);
 
   // ----- load persisted state -----
   useEffect(() => {
@@ -112,18 +112,22 @@ export function useAlarmManager(
       if (savedSettings) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) });
     } catch {
       // ignore
+    } finally {
+      setHydrated(true);
     }
   }, []);
 
   // ----- persist alerts -----
   useEffect(() => {
+    if (!hydrated) return;
     localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts));
-  }, [alerts]);
+  }, [alerts, hydrated]);
 
   // ----- persist settings -----
   useEffect(() => {
+    if (!hydrated) return;
     localStorage.setItem(ALARM_SETTINGS_KEY, JSON.stringify(settings));
-  }, [settings]);
+  }, [settings, hydrated]);
 
   // ----- request notification permission -----
   const requestNotificationPermission = useCallback(async () => {
@@ -171,17 +175,16 @@ export function useAlarmManager(
         }
       }
 
-      // Browser notification
+      // Service worker notifications also work when the installed app is in the background.
       if (s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted") {
-        try {
-          const icon = type === "takeProfit" ? "📈" : type === "stopLoss" ? "🛑" : type === "entry" ? "🎯" : "🔔";
-          new Notification(`${icon} Lotwise Alert — ${currentSymbolLabel}`, {
-            body: message,
-            tag: event.id,
-            // No icon URL — browser will use default
-          });
-        } catch {
-          // ignore
+        const icon = type === "takeProfit" ? "📈" : type === "stopLoss" ? "🛑" : type === "entry" ? "🎯" : "🔔";
+        const options = { body: message, tag: event.id, icon: "/icon-192.png" };
+        if ("serviceWorker" in navigator) {
+          void navigator.serviceWorker.getRegistration()
+            .then((registration) => registration?.showNotification(`${icon} Lotwise Alert: ${currentSymbolLabel}`, options))
+            .catch(() => {});
+        } else {
+          try { new Notification(`${icon} Lotwise Alert: ${currentSymbolLabel}`, options); } catch {}
         }
       }
     },
@@ -191,6 +194,8 @@ export function useAlarmManager(
   // ----- watch current price for trade level hits (entry/SL/TP) -----
   useEffect(() => {
     if (!currentPrice || currentPrice <= 0) return;
+    if (!currentPriceIsLive) return;
+    const previousPrice = previousPriceRef.current.get(currentSymbolId);
     if (!tradeLevels) return;
     if (tradeLevels.symbolId !== currentSymbolId) return;
 
@@ -198,14 +203,13 @@ export function useAlarmManager(
     if (!s.enabled) return;
 
     const levels = tradeLevels;
-    const key = (lvl: number | undefined) =>
-      `${currentSymbolId}:${currentPrice.toFixed(4)}:${lvl}`;
+    const key = (lvl: number | undefined) => `${currentSymbolId}:${lvl}`;
 
     // ENTRY hit detection
     if (levels.entry != null && levels.entry > 0) {
       const k = `entry:${key(levels.entry)}`;
-      const tolerance = levels.entry * 0.0001; // 1bp tolerance
-      const hit = Math.abs(currentPrice - levels.entry) <= tolerance;
+      const hit = didCrossPriceLevel(previousPrice, currentPrice, levels.entry, "above") ||
+        didCrossPriceLevel(previousPrice, currentPrice, levels.entry, "below");
       if (hit && !firedTradeLevelsRef.current.has(k) && s.notifyEntry) {
         const price = currentPrice;
         setTimeout(() => emitEvent("entry", `Entry level reached at ${price}`, price), 0);
@@ -216,54 +220,44 @@ export function useAlarmManager(
     // SL hit detection → auto-mark trade as loss
     if (levels.stopLoss != null && levels.stopLoss > 0) {
       const k = `sl:${key(levels.stopLoss)}`;
-      const tolerance = levels.stopLoss * 0.0001;
-      const hit = Math.abs(currentPrice - levels.stopLoss) <= tolerance;
+      const isLong = levels.entry != null && levels.stopLoss < levels.entry;
+      const hit = didCrossPriceLevel(previousPrice, currentPrice, levels.stopLoss, isLong ? "below" : "above");
       if (hit && !firedTradeLevelsRef.current.has(k) && s.notifySL) {
         const price = currentPrice;
         setTimeout(() => emitEvent("stopLoss", `Stop loss triggered at ${price}`, price), 0);
         firedTradeLevelsRef.current.add(k);
-        // Auto-update trade outcome
-        if (onOutcomeRef.current) {
-          setTimeout(() => onOutcomeRef.current?.(currentSymbolId, "loss", price), 0);
-        }
       }
     }
 
     // TP hit detection → auto-mark trade as win
     if (levels.takeProfit != null && levels.takeProfit > 0) {
       const k = `tp:${key(levels.takeProfit)}`;
-      const tolerance = levels.takeProfit * 0.0001;
-      const hit = Math.abs(currentPrice - levels.takeProfit) <= tolerance;
+      const isLong = levels.entry != null && levels.takeProfit > levels.entry;
+      const hit = didCrossPriceLevel(previousPrice, currentPrice, levels.takeProfit, isLong ? "above" : "below");
       if (hit && !firedTradeLevelsRef.current.has(k) && s.notifyTP) {
         const price = currentPrice;
         setTimeout(() => emitEvent("takeProfit", `Take profit reached at ${price}`, price), 0);
         firedTradeLevelsRef.current.add(k);
-        // Auto-update trade outcome
-        if (onOutcomeRef.current) {
-          setTimeout(() => onOutcomeRef.current?.(currentSymbolId, "win", price), 0);
-        }
       }
     }
-  }, [currentPrice, tradeLevels, currentSymbolId]);
+  }, [currentPrice, currentPriceIsLive, tradeLevels, currentSymbolId, emitEvent]);
 
   // ----- watch current price for custom alerts -----
   useEffect(() => {
     if (!currentPrice || currentPrice <= 0) return;
+    if (!currentPriceIsLive) return;
+    if (!settingsRef.current.enabled) return;
+    const previousPrice = previousPriceRef.current.get(currentSymbolId);
+    if (previousPrice == null) return;
 
-    const activeAlerts = alertsRef.current.filter(
+    const activeAlerts = alerts.filter(
       (a) =>
         a.status === "active" &&
         a.symbolId === currentSymbolId
     );
 
     for (const alert of activeAlerts) {
-      const tolerance = alert.price * 0.0001;
-      let hit = false;
-      if (alert.direction === "above" && currentPrice >= alert.price - tolerance) {
-        hit = true;
-      } else if (alert.direction === "below" && currentPrice <= alert.price + tolerance) {
-        hit = true;
-      }
+      const hit = didCrossPriceLevel(previousPrice, currentPrice, alert.price, alert.direction);
       if (hit) {
         // Mark alert as triggered
         setAlerts((prev) =>
@@ -284,14 +278,19 @@ export function useAlarmManager(
           () =>
             emitEvent(
               alertType,
-              `${label} ${directionLabel} ${alertPrice}${alertLabel ? ` — ${alertLabel}` : ""}`,
+              `${label} ${directionLabel} ${alertPrice}${alertLabel ? `: ${alertLabel}` : ""}`,
               price
             ),
           0
         );
       }
     }
-  }, [currentPrice, currentSymbolId]);
+  }, [alerts, currentPrice, currentPriceIsLive, currentSymbolId, currentSymbolLabel, emitEvent]);
+
+  // Both watchers read the previous tick before it is advanced here.
+  useEffect(() => {
+    if (currentPriceIsLive && currentPrice != null && currentPrice > 0) previousPriceRef.current.set(currentSymbolId, currentPrice);
+  }, [currentPrice, currentPriceIsLive, currentSymbolId]);
 
   // ----- API: add custom price alert -----
   const addAlert = useCallback(
@@ -337,6 +336,12 @@ export function useAlarmManager(
     );
   }, []);
 
+  const markAlertTriggered = useCallback((id: string) => {
+    setAlerts((prev) => prev.map((alert) => alert.id === id && alert.status === "active"
+      ? { ...alert, status: "triggered", triggeredAt: Date.now() }
+      : alert));
+  }, []);
+
   const clearEvents = useCallback(() => {
     setEvents([]);
   }, []);
@@ -352,6 +357,7 @@ export function useAlarmManager(
     removeAlert,
     clearTriggeredAlerts,
     reactivateAlert,
+    markAlertTriggered,
     clearEvents,
   };
 }

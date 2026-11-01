@@ -17,25 +17,28 @@ export function usePWA() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!("serviceWorker" in navigator)) return;
 
+    let updateTimer: number | undefined;
     const register = async () => {
+      if (!("serviceWorker" in navigator)) return;
       try {
         const reg = await navigator.serviceWorker.register("/sw.js", {
           scope: "/",
         });
-        setInterval(() => reg.update().catch(() => {}), 60_000);
+        updateTimer = window.setInterval(() => reg.update().catch(() => {}), 60_000);
       } catch (err) {
         console.warn("[PWA] SW registration failed:", err);
       }
     };
-    register();
+    void register();
 
-    const installed =
-      window.matchMedia("(display-mode: standalone)").matches ||
+    const standaloneQuery = window.matchMedia("(display-mode: standalone)");
+    const isStandalone = () =>
+      standaloneQuery.matches ||
+      window.matchMedia("(display-mode: fullscreen)").matches ||
       !!(typeof navigator !== "undefined" && (navigator as { standalone?: boolean }).standalone);
-    if (installed) setIsInstalled(true);
-
+    const updateInstalled = () => setIsInstalled(isStandalone());
+    updateInstalled();
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e as BeforeInstallPromptEvent);
@@ -44,25 +47,34 @@ export function usePWA() {
       setIsInstalled(true);
       setInstallPrompt(null);
     };
+    const onDisplayModeChange = () => updateInstalled();
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
+    standaloneQuery.addEventListener?.("change", onDisplayModeChange);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
       window.removeEventListener("appinstalled", onInstalled);
+      standaloneQuery.removeEventListener?.("change", onDisplayModeChange);
+      if (updateTimer != null) window.clearInterval(updateTimer);
     };
   }, []);
 
-  async function promptInstall() {
-    if (!installPrompt) return false;
-    await installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    setInstallPrompt(null);
-    return choice.outcome === "accepted";
+  async function promptInstall(): Promise<boolean | null> {
+    if (!installPrompt) return null;
+    try {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      setInstallPrompt(null);
+      return choice.outcome === "accepted";
+    } catch {
+      setInstallPrompt(null);
+      return null;
+    }
   }
 
   return {
-    canInstall: !!installPrompt,
+    canInstall: !isInstalled,
     isInstalled,
     promptInstall,
   };
