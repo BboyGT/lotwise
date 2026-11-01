@@ -912,8 +912,18 @@ export default function Home() {
                       type="text"
                       inputMode="decimal"
                       value={balanceInput}
+                      onFocus={(e) => {
+                        if (balanceInput === "0") e.currentTarget.select();
+                      }}
                       onChange={(e) => {
-                        const entered = e.target.value.replace(/[^\d.]/g, "");
+                        const input = e.currentTarget;
+                        const entered = input.value.replace(/[^\d.]/g, "");
+                        if (entered === "") {
+                          setBalanceInput("0");
+                          setBalance(0);
+                          window.requestAnimationFrame(() => input.select());
+                          return;
+                        }
                         const [whole, ...fraction] = entered.split(".");
                         const normalizedWhole = whole.replace(/^0+(?=\d)/, "");
                         const raw = fraction.length > 0
@@ -921,8 +931,7 @@ export default function Home() {
                           : normalizedWhole;
                         setBalanceInput(raw);
                         const parsed = Number(raw);
-                        if (raw.trim() === "") setBalance(0);
-                        else if (Number.isFinite(parsed) && parsed >= 0) setBalance(parsed);
+                        if (Number.isFinite(parsed) && parsed >= 0) setBalance(parsed);
                       }}
                       onBlur={() => updateBalance(Number(balanceInput))}
                       className="pl-7 bg-black/40 border-white/10 text-white font-mono tabular-nums text-lg focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20 h-10"
@@ -1496,6 +1505,22 @@ export default function Home() {
                                 className="bg-amber-500/10 text-amber-400 text-[9px] px-1.5 py-0"
                               >
                                 {formatLot(rec.recommendedLot)} lot
+                              </Badge>
+                              <Badge
+                                variant="secondary"
+                                className={`text-[9px] px-1.5 py-0 uppercase ${
+                                  !rec.outcome || rec.outcome === "pending"
+                                    ? "bg-amber-500/10 text-amber-300"
+                                    : rec.outcome === "win"
+                                      ? "bg-emerald-500/10 text-emerald-300"
+                                      : rec.outcome === "loss"
+                                        ? "bg-rose-500/10 text-rose-300"
+                                        : "bg-slate-500/10 text-slate-300"
+                                }`}
+                              >
+                                {!rec.outcome || rec.outcome === "pending"
+                                  ? "Active"
+                                  : `Closed · ${rec.outcome === "breakeven" ? "BE" : rec.outcome}`}
                               </Badge>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
