@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ASSET_CLASSES,
   AssetClass,
@@ -77,9 +77,18 @@ import { SyntheticCandleChart } from "@/components/synthetic-candle-chart";
 import { ConnectionDiagnostic } from "@/components/connection-diagnostic";
 import { AnimatedNumber } from "@/components/gt-mark";
 import { resolveTradeOutcome } from "@/lib/trade-outcomes";
+import type { LotwiseBackup } from "@/lib/private-backup";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
+const QUOTE_CURRENCY_USD_FEEDS: Record<string, { symbol: string; direction: "direct" | "inverse" }> = {
+  GBP: { symbol: "FX:GBPUSD", direction: "direct" },
+  AUD: { symbol: "FX:AUDUSD", direction: "direct" },
+  NZD: { symbol: "FX:NZDUSD", direction: "direct" },
+  JPY: { symbol: "FX:USDJPY", direction: "inverse" },
+  CHF: { symbol: "FX:USDCHF", direction: "inverse" },
+  CAD: { symbol: "FX:USDCAD", direction: "inverse" },
+};
 
 interface TradeRecord {
   id: string;
@@ -116,6 +125,7 @@ export default function Home() {
   const [assetClass, setAssetClass] = useState<AssetClass>("synthetic"); // start on synthetic to showcase live Deriv feed
   const [symbolId, setSymbolId] = useState<string>("VOL75");
   const [balance, setBalance] = useState<number>(100);
+  const [balanceInput, setBalanceInput] = useState("100");
   const [riskPercent, setRiskPercent] = useState<number>(10);
   const [entry, setEntry] = useState<string>("");
   const [stopLoss, setStopLoss] = useState<string>("");
@@ -123,10 +133,21 @@ export default function Home() {
 
   // ----- history -----
   const [history, setHistory] = useState<TradeRecord[]>([]);
+  const historyRef = useRef(history);
   const [historyOpen, setHistoryOpen] = useState<boolean>(true);
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
 
   // ----- hydrated flag for localStorage load -----
   const [hydrated, setHydrated] = useState(false);
+
+  function updateBalance(value: number) {
+    const normalized = Number.isFinite(value) ? Math.max(0, value) : 0;
+    setBalance(normalized);
+    setBalanceInput(String(normalized));
+  }
 
   useEffect(() => {
     try {
@@ -139,11 +160,22 @@ export default function Home() {
         }
       }
       if (saved) {
-        const obj = JSON.parse(saved);
-        if (obj.displayCurrency) setDisplayCurrency(obj.displayCurrency);
-        if (obj.balance) setBalance(obj.balance);
-        if (obj.riskPercent) setRiskPercent(obj.riskPercent);
+        try {
+          const obj = JSON.parse(saved);
+          if (obj && typeof obj === "object") {
+            if (CURRENCIES.includes(obj.displayCurrency)) setDisplayCurrency(obj.displayCurrency);
+            if (Number.isFinite(obj.balance) && obj.balance >= 0) updateBalance(obj.balance);
+            if (Number.isFinite(obj.riskPercent) && obj.riskPercent >= 0 && obj.riskPercent <= 100) setRiskPercent(obj.riskPercent);
+          }
+        } catch {
+          // Ignore invalid preferences without preventing journal recovery.
+        }
       }
+    } catch {
+      // Browser storage may be disabled; the calculator remains usable.
+    }
+
+    try {
       let hist = localStorage.getItem(HISTORY_KEY);
       if (!hist) {
         for (const k of LEGACY_HISTORY_KEYS) {
@@ -151,7 +183,13 @@ export default function Home() {
           if (hist) break;
         }
       }
-      if (hist) setHistory(JSON.parse(hist));
+      if (hist) {
+        const parsed: unknown = JSON.parse(hist);
+        if (Array.isArray(parsed)) {
+          historyRef.current = parsed as TradeRecord[];
+          setHistory(historyRef.current);
+        }
+      }
     } catch {
       // ignore malformed storage
     }
@@ -198,6 +236,19 @@ export default function Home() {
     };
   }, [symbol.derivSymbol, symbol.binanceSymbol, symbol.tvScannerSymbol, symbol.decimals]);
   const livePrice = useLivePrice(livePriceSource);
+  const quoteCurrency = symbol.id.slice(-3);
+  const quoteConversion = useMemo(() => {
+    if (symbol.assetClass !== "forex" || quoteCurrency === "USD" || symbol.id.startsWith("USD")) return null;
+    const feed = QUOTE_CURRENCY_USD_FEEDS[quoteCurrency];
+    return feed ? { ...feed, decimals: 6 } : null;
+  }, [quoteCurrency, symbol.assetClass, symbol.id]);
+  const quoteConversionPrice = useLivePrice(quoteConversion ? {
+    tvScannerSymbol: quoteConversion.symbol,
+    decimals: quoteConversion.decimals,
+  } : null);
+  const quoteCurrencyToUsdRate = quoteConversionPrice.source === "tv-scanner" && quoteConversionPrice.price
+    ? quoteConversion?.direction === "inverse" ? 1 / quoteConversionPrice.price : quoteConversionPrice.price
+    : undefined;
   const hasLiveFeed = !!livePriceSource;
   // DerivTicks alias — maps livePrice fields to the names used throughout the JSX
   const derivTicks = {
@@ -207,7 +258,6 @@ export default function Home() {
     isLoading: livePrice.isLoading,
     error: livePrice.error,
     connected: livePrice.connected,
-    usingFallback: livePrice.source === "simulator" || livePrice.source === "none",
   };
 
   // ----- PWA install prompt -----
@@ -234,8 +284,9 @@ export default function Home() {
         entry: parseFloat(stableEntry) || 0,
         stopLoss: parseFloat(stableStopLoss) || 0,
         takeProfit: parseFloat(stableTakeProfit) || 0,
+        quoteCurrencyToUsdRate,
       }),
-    [symbol, stableBalance, stableRiskPercent, stableEntry, stableStopLoss, stableTakeProfit]
+    [symbol, stableBalance, stableRiskPercent, stableEntry, stableStopLoss, stableTakeProfit, quoteCurrencyToUsdRate]
   );
 
   // ----- Alarm / Notification state -----
@@ -339,7 +390,8 @@ export default function Home() {
       note: tradeNote.trim() || undefined,
       outcome: "pending",
     };
-    const next = [record, ...history].slice(0, 50);
+    const next = [record, ...historyRef.current].slice(0, 50);
+    historyRef.current = next;
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
     setTradeNote("");
@@ -357,7 +409,7 @@ export default function Home() {
   }
 
   function updateTradeRecord(id: string, updates: Partial<TradeRecord>) {
-    const next = history.map((r) => {
+    const next = historyRef.current.map((r) => {
       if (r.id !== id) return r;
       const merged = { ...r, ...updates };
       if (updates.outcome === "pending") {
@@ -374,6 +426,7 @@ export default function Home() {
       }
       return merged;
     });
+    historyRef.current = next;
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   }
@@ -386,7 +439,8 @@ export default function Home() {
     timestamp?: number;
   }>) {
     const byId = new Map(outcomes.map((outcome) => [outcome.tradeId, outcome]));
-    const next = history.map((trade) => {
+    const currentHistory = historyRef.current;
+    const next = currentHistory.map((trade) => {
       const result = byId.get(trade.id);
       if (!result || !result.outcome || result.outcome === "pending") return trade;
       return {
@@ -400,7 +454,8 @@ export default function Home() {
         closedAt: Number.isFinite(result.timestamp) ? result.timestamp : Date.now(),
       };
     });
-    if (next.some((trade, index) => trade !== history[index])) {
+    if (next.some((trade, index) => trade !== currentHistory[index])) {
+      historyRef.current = next;
       setHistory(next);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
     }
@@ -408,7 +463,7 @@ export default function Home() {
 
   // Auto-journal target/stop crossings while this symbol has a real live feed.
   useEffect(() => {
-    if (!livePrice.connected || !livePrice.price || livePrice.source === "simulator" || livePrice.source === "none") return;
+    if (!livePrice.connected || !livePrice.price || livePrice.source === "none") return;
     const closedAt = Date.now();
     const next = history.map((trade) => {
       if (trade.symbolId !== symbol.id || (trade.outcome && trade.outcome !== "pending")) return trade;
@@ -416,19 +471,25 @@ export default function Home() {
       return resolved ? { ...trade, ...resolved, closedAt } : trade;
     });
     if (next.some((trade, index) => trade !== history[index])) {
+      historyRef.current = next;
       setHistory(next);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
     }
   }, [history, livePrice.connected, livePrice.price, livePrice.source, symbol.id]);
 
   function deleteTrade(id: string) {
-    const next = history.filter((r) => r.id !== id);
+    const next = historyRef.current.filter((r) => r.id !== id);
+    historyRef.current = next;
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   }
 
   // Listen for background outcomes from the service worker
   useEffect(() => {
+    // The service worker clears delivered outcomes after responding. Wait
+    // until localStorage has populated the journal so those outcomes can be
+    // applied instead of being discarded against an empty initial state.
+    if (!hydrated) return;
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 
     const handleMessage = (event: MessageEvent) => {
@@ -457,12 +518,12 @@ export default function Home() {
     return () => {
       navigator.serviceWorker.removeEventListener("message", handleMessage);
     };
-  }, [history]);
+  }, [hydrated]);
 
   function replayTrade(rec: TradeRecord) {
     setAssetClass(rec.assetClass);
     setSymbolId(rec.symbolId);
-    setBalance(rec.balance);
+    updateBalance(rec.balance);
     setRiskPercent(rec.riskPercent);
     setEntry(String(rec.entry));
     setStopLoss(String(rec.stopLoss));
@@ -471,8 +532,27 @@ export default function Home() {
   }
 
   function clearHistory() {
+    historyRef.current = [];
     setHistory([]);
     localStorage.removeItem(HISTORY_KEY);
+  }
+
+  function restoreBackup(data: LotwiseBackup) {
+    const restoredHistory = data.journal as TradeRecord[];
+    const restoredCurrency = CURRENCIES.includes(data.settings.displayCurrency as CurrencyCode)
+      ? data.settings.displayCurrency as CurrencyCode
+      : "USD";
+    historyRef.current = restoredHistory;
+    setHistory(restoredHistory);
+    setDisplayCurrency(restoredCurrency);
+    updateBalance(data.settings.balance);
+    setRiskPercent(data.settings.riskPercent);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(restoredHistory));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      displayCurrency: restoredCurrency,
+      balance: data.settings.balance,
+      riskPercent: data.settings.riskPercent,
+    }));
   }
 
   // ----- R:R bar geometry -----
@@ -568,9 +648,7 @@ export default function Home() {
                 className={`rm-pulse-dot ${
                   hasLiveFeed
                     ? derivTicks.connected
-                      ? derivTicks.usingFallback
-                        ? "bg-amber-400"
-                        : "bg-emerald-400"
+                      ? "bg-emerald-400"
                       : "bg-amber-400"
                     : "bg-cyan-400"
                 }`}
@@ -579,21 +657,17 @@ export default function Home() {
               <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
                 {hasLiveFeed
                   ? derivTicks.connected
-                    ? derivTicks.usingFallback
-                      ? livePrice.source === "binance-rest"
-                        ? "Binance · Live"
-                        : livePrice.source === "tv-scanner"
-                        ? "TV · Live"
-                        : "Deriv WS · SIM"
-                      : livePrice.source === "binance-rest"
+                    ? livePrice.source === "binance-rest"
                       ? "Binance · Live"
                       : livePrice.source === "tv-scanner"
-                      ? "TV · Live"
-                      : "Deriv WS · Live"
-                    : "Connecting…"
+                        ? "TV · Live"
+                        : "Deriv WS · Live"
+                    : derivTicks.error
+                      ? "Feed unavailable"
+                      : "Connecting…"
                   : "TV Chart Mode"}
               </span>
-              {hasLiveFeed ? (
+              {hasLiveFeed && derivTicks.connected ? (
                 <Wifi className="h-3 w-3 text-emerald-400" />
               ) : (
                 <WifiOff className="h-3 w-3 text-slate-500" />
@@ -701,10 +775,6 @@ export default function Home() {
                       ? "BINANCE · REST"
                       : livePrice.source === "tv-scanner"
                       ? "TV · SCANNER"
-                      : livePrice.source === "simulator"
-                      ? symbol.derivSymbol
-                        ? "DERIV · SIM"
-                        : "BINANCE · SIM"
                       : "TRADINGVIEW"
                     : "TRADINGVIEW"}
                 </span>
@@ -745,19 +815,17 @@ export default function Home() {
                     <span>Source: <span className="text-slate-300">{symbol.derivSymbol || symbol.binanceSymbol || symbol.tvScannerSymbol || "—"}</span></span>
                     <span>·</span>
                     <span>
-                      {livePrice.source === "simulator"
-                        ? "Simulated (WS unreachable in sandbox)"
-                        : livePrice.source === "binance-rest"
-                        ? "Live · Binance REST"
-                        : livePrice.source === "tv-scanner"
-                        ? "Live · TradingView Scanner"
-                        : livePrice.source === "deriv-ws"
-                        ? "Live · Deriv WS"
+                      {livePrice.connected
+                        ? livePrice.source === "binance-rest"
+                          ? "Live · Binance REST"
+                          : livePrice.source === "tv-scanner"
+                            ? "Live · TradingView Scanner"
+                            : "Live · Deriv WS"
                         : derivTicks.isLoading
-                        ? "Subscribing…"
-                        : derivTicks.error
-                        ? "Error"
-                        : "Streaming"}
+                          ? "Connecting…"
+                          : livePrice.price
+                            ? "Feed unavailable · showing last quote"
+                            : "Feed unavailable"}
                     </span>
                   </div>
                   {derivTicks.error && (
@@ -829,7 +897,7 @@ export default function Home() {
                   {/* Minus stepper */}
                   <button
                     type="button"
-                    onClick={() => setBalance((b) => Math.max(0, b - 10))}
+                    onClick={() => updateBalance(balance - 10)}
                     className="rm-stepper shrink-0 w-9 rounded-md border border-white/10 bg-black/40 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 font-mono text-base flex items-center justify-center transition-colors"
                     aria-label="Decrease balance by 10"
                   >
@@ -839,18 +907,24 @@ export default function Home() {
                   <div className="relative flex-1">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 font-mono text-sm pointer-events-none">$</span>
                     <Input
-                      type="number"
-                      value={stableBalance}
-                      min={0}
-                      step={10}
-                      onChange={(e) => setBalance(parseFloat(e.target.value) || 0)}
+                      type="text"
+                      inputMode="decimal"
+                      value={balanceInput}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setBalanceInput(raw);
+                        const parsed = Number(raw);
+                        if (raw.trim() === "") setBalance(0);
+                        else if (Number.isFinite(parsed) && parsed >= 0) setBalance(parsed);
+                      }}
+                      onBlur={() => updateBalance(Number(balanceInput))}
                       className="pl-7 bg-black/40 border-white/10 text-white font-mono tabular-nums text-lg focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20 h-10"
                     />
                   </div>
                   {/* Plus stepper */}
                   <button
                     type="button"
-                    onClick={() => setBalance((b) => b + 10)}
+                    onClick={() => updateBalance(balance + 10)}
                     className="rm-stepper shrink-0 w-9 rounded-md border border-white/10 bg-black/40 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 font-mono text-base flex items-center justify-center transition-colors"
                     aria-label="Increase balance by 10"
                   >
@@ -868,7 +942,7 @@ export default function Home() {
                     <button
                       key={preset.value}
                       type="button"
-                      onClick={() => setBalance(preset.value)}
+                      onClick={() => updateBalance(preset.value)}
                       className={`h-6 rounded text-[10px] font-mono uppercase tracking-wider transition-colors ${
                         stableBalance === preset.value
                           ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
@@ -1088,20 +1162,24 @@ export default function Home() {
                   <div className="flex items-center justify-center gap-3 mt-3 text-[10px] font-mono uppercase tracking-wider text-slate-500">
                     <span>exact: <span className="text-slate-300">{calc.exactLot.toFixed(4)}</span></span>
                     <span className="text-slate-700">·</span>
-                    <span>step: <span className="text-slate-300">{symbol.lotStep}</span></span>
+                    <span>catalog step: <span className="text-slate-300">{symbol.lotStep}</span></span>
                     <span className="text-slate-700">·</span>
                     <span>min: <span className="text-slate-300">{symbol.minLot}</span></span>
                   </div>
+                  <p className={`mt-2 text-[10px] font-mono ${calc.pipValueEstimated ? "text-amber-300/80" : "text-slate-500"}`}>
+                    {calc.pipValueEstimated ? "Estimated" : "Live-converted"} pip/point value: {formatMoney(calc.pipValuePerLot, "USD")} per catalog lot
+                    {calc.pipValueEstimated && "; verify broker contract size and lot rules"}
+                  </p>
                   <div className="mt-3">
                     {calc.minLotOk ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] font-mono uppercase tracking-wider">
                         <span className="rm-pulse-dot bg-emerald-400" style={{ width: 6, height: 6 }} />
-                        Within broker min
+                        Within catalog minimum
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[10px] font-mono uppercase tracking-wider">
                         <span className="rm-pulse-dot bg-rose-400" style={{ width: 6, height: 6 }} />
-                        Below broker min ({symbol.minLot})
+                        Below catalog minimum ({symbol.minLot})
                       </span>
                     )}
                   </div>
@@ -1227,7 +1305,7 @@ export default function Home() {
                     <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 border-b border-rose-500/20">
                       <span className="rm-pulse-dot bg-rose-400" style={{ width: 6, height: 6 }} />
                       <span className="text-xs font-mono uppercase tracking-wider text-rose-300 font-semibold">
-                        Below Broker Minimum Lot
+                        Below Catalog Minimum Lot
                       </span>
                     </div>
 
@@ -1237,7 +1315,7 @@ export default function Home() {
                         Calculated lot <span className="text-rose-300 font-bold">{formatLot(calc.recommendedLot)}</span>
                         {" "}is below broker minimum of{" "}
                         <span className="text-amber-300 font-bold">{calc.minLotWarning.minLot}</span>{" "}
-                        for {symbol.label}.
+                        for {symbol.label}. Confirm the minimum and volume increment with your broker.
                       </p>
 
                       {/* Divider */}
@@ -1583,7 +1661,7 @@ export default function Home() {
         currentSymbolLabel={symbol.label}
         currentSymbolAssetClass={symbol.assetClass}
         currentPrice={livePrice.price}
-        currentPriceIsLive={livePrice.connected && livePrice.source !== "simulator" && livePrice.source !== "none"}
+        currentPriceIsLive={livePrice.connected && livePrice.source !== "none"}
         currentSymbolDecimals={symbol.decimals}
         tradeLevels={tradeLevelsForAlarm}
         backgroundTrades={backgroundTrades}
@@ -1593,6 +1671,16 @@ export default function Home() {
           exitPrice: outcome.price,
           closedAt: outcome.timestamp,
         })}
+        backupSnapshot={{
+          format: "lotwise-private-backup",
+          version: 1,
+          createdAt: new Date().toISOString(),
+          journal: history,
+          alerts: [],
+          alarmSettings: { enabled: true, notifyEntry: true, notifySL: true, notifyTP: true, volume: 0.6, browserNotifications: true },
+          settings: { displayCurrency, balance, riskPercent },
+        }}
+        onRestoreBackup={restoreBackup}
       />
     </div>
   );

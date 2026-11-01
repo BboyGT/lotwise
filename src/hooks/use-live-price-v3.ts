@@ -3,13 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 
 // ===========================================================================
-// Live price hook — multi-source with intelligent fallback
+// Live price hook — multi-source live feeds only
 //
 // Sources tried in order:
 //   1. Deriv's current public market-data WebSocket (synthetics only)
 //   2. Legacy Deriv WebSocket fallback for older networks
 //   3. Binance REST polling (crypto only) — https://api.binance.com/api/v3/ticker/price
-//   4. Simulator fallback (when real sources are unreachable)
 //
 // Price requests originate in the visitor's browser, independent of the app host.
 // ===========================================================================
@@ -28,44 +27,8 @@ export interface UseLivePriceResult {
   isLoading: boolean;
   error: string | null;
   connected: boolean;
-  source: "deriv-ws" | "binance-rest" | "tv-scanner" | "simulator" | "none";
+  source: "deriv-ws" | "binance-rest" | "tv-scanner" | "none";
 }
-
-// Fallback baseline prices for synthetic symbols when WS is unreachable.
-const FALLBACK_BASE: Record<string, number> = {
-  // Boom / Crash
-  BOOM300N: 8500,
-  BOOM500: 9000,
-  BOOM600: 9200,
-  BOOM900: 9400,
-  BOOM1000: 9500,
-  CRASH300N: 8500,
-  CRASH500: 9000,
-  CRASH600: 9200,
-  CRASH900: 9400,
-  CRASH1000: 9500,
-  // Volatility
-  R_10: 6510,
-  R_25: 1520,
-  R_50: 198,
-  R_75: 385460.5,
-  R_100: 1348.5,
-  // 1s Volatility
-  "1HZ10V": 7320,
-  "1HZ15V": 4500,
-  "1HZ25V": 1845,
-  "1HZ30V": 3200,
-  "1HZ50V": 234,
-  "1HZ75V": 412350,
-  "1HZ90V": 8900,
-  "1HZ100V": 1567,
-  // Jump
-  JD10: 7800,
-  JD25: 1760,
-  JD50: 245,
-  JD75: 412000,
-  JD100: 1420,
-};
 
 interface PriceSource {
   derivSymbol?: string;
@@ -86,13 +49,20 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
   const wsRef = useRef<WebSocket | null>(null);
   const subscriptionIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const simTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const latestPriceRef = useRef<number | null>(null);
+  const sourceKey = source
+    ? `${source.derivSymbol ?? ""}|${source.binanceSymbol ?? ""}|${source.tvScannerSymbol ?? ""}`
+    : "";
+  const [activeSourceKey, setActiveSourceKey] = useState(sourceKey);
 
   useEffect(() => {
     if (!source) return;
     if (!source.derivSymbol && !source.binanceSymbol && !source.tvScannerSymbol) return;
 
+    setActiveSourceKey(sourceKey);
+    setPrice(null);
+    setPrevPrice(null);
+    setDirection(null);
     setIsLoading(true);
     setError(null);
     setConnected(false);
@@ -100,58 +70,32 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     latestPriceRef.current = null;
 
     let cancelled = false;
-    let settled = false; // once we get any source working, don't fall back
-
-    // ---------------------------------------------------------------
-    // Simulator fallback (defined at outer scope so both Binance and
-    // Deriv paths can use it).
-    // ---------------------------------------------------------------
-    const startSimulator = (
-      src: PriceSource,
-      reason?: string
-    ) => {
-      if (cancelled || settled) return;
-      settled = true;
-      setCurrentSource("simulator");
-      setConnected(true);
-      setIsLoading(false);
-      setError(null);
-
-      const base = FALLBACK_BASE[src.derivSymbol!] ?? 1000;
-      latestPriceRef.current = base;
-      setPrice(base);
-
-      simTimerRef.current = setInterval(() => {
-        if (cancelled) return;
-        const prev = latestPriceRef.current ?? base;
-        const drift = (base - prev) * 0.05;
-        const shock = prev * (Math.random() - 0.5) * 0.002;
-        const next = prev + drift + shock;
-        setPrevPrice(prev);
-        setPrice(next);
-        setDirection(next > prev ? "up" : "down");
-        latestPriceRef.current = next;
-      }, 1500);
-      void reason;
-    };
 
     // ---------------------------------------------------------------
     // Path A: TradingView scanner polling for forex/indices
     // ---------------------------------------------------------------
     if (source.tvScannerSymbol && !source.derivSymbol && !source.binanceSymbol) {
       setCurrentSource("tv-scanner");
-      setConnected(true);
+      setConnected(false);
       setIsLoading(false);
+      let requestInFlight = false;
+      let activeController: AbortController | null = null;
 
       const fetchPrice = async () => {
-        if (cancelled) return;
+        if (cancelled || requestInFlight) return;
+        requestInFlight = true;
+        const controller = new AbortController();
+        activeController = controller;
+        const timeout = setTimeout(() => controller.abort(), 8000);
         try {
           const url = `https://scanner.tradingview.com/symbol?symbol=${encodeURIComponent(
             source.tvScannerSymbol!
           )}&fields=close,change`;
-          const res = await fetch(url, { cache: "no-store" });
+          const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+          if (cancelled) return;
           if (!res.ok) throw new Error(`TV scanner HTTP ${res.status}`);
           const data = await res.json();
+          if (cancelled) return;
           if (typeof data.close !== "number" || data.close <= 0) {
             throw new Error("Invalid TV scanner response");
           }
@@ -163,11 +107,19 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
             setDirection(next > prev ? "up" : next < prev ? "down" : null);
           }
           latestPriceRef.current = next;
-          settled = true;
+          setConnected(true);
+          setError(null);
+          setIsLoading(false);
         } catch (err) {
-          if (!settled) {
-            startSimulator(source, err instanceof Error ? err.message : "TV scanner fetch failed");
+          if (!cancelled) {
+            setConnected(false);
+            setError(err instanceof Error ? err.message : "TradingView price fetch failed");
+            setIsLoading(false);
           }
+        } finally {
+          clearTimeout(timeout);
+          if (activeController === controller) activeController = null;
+          requestInFlight = false;
         }
       };
 
@@ -175,6 +127,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
       pollTimerRef.current = setInterval(fetchPrice, 3000);
       return () => {
         cancelled = true;
+        activeController?.abort();
         if (pollTimerRef.current) {
           clearInterval(pollTimerRef.current);
           pollTimerRef.current = null;
@@ -187,20 +140,29 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     // ---------------------------------------------------------------
     if (source.binanceSymbol && !source.derivSymbol) {
       setCurrentSource("binance-rest");
-      setConnected(true);
+      setConnected(false);
       setIsLoading(false);
+      let requestInFlight = false;
+      let activeController: AbortController | null = null;
 
       const fetchPrice = async () => {
-        if (cancelled) return;
+        if (cancelled || requestInFlight) return;
+        requestInFlight = true;
+        const controller = new AbortController();
+        activeController = controller;
+        const timeout = setTimeout(() => controller.abort(), 8000);
         try {
           const res = await fetch(
             `${BINANCE_API}?symbol=${source.binanceSymbol}`,
-            { cache: "no-store" }
+            { cache: "no-store", signal: controller.signal }
           );
+          if (cancelled) return;
           if (!res.ok) throw new Error(`Binance HTTP ${res.status}`);
           const data = await res.json();
+          if (cancelled) return;
           if (typeof data.price !== "string") throw new Error("Bad Binance response");
           const next = parseFloat(data.price);
+          if (!Number.isFinite(next) || next <= 0) throw new Error("Invalid Binance price response");
           const prev = latestPriceRef.current;
           setPrevPrice(prev);
           setPrice(next);
@@ -208,12 +170,20 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
             setDirection(next > prev ? "up" : next < prev ? "down" : null);
           }
           latestPriceRef.current = next;
-          settled = true; // mark settled on first successful fetch
+          setConnected(true);
+          setError(null);
+          setIsLoading(false);
         } catch (err) {
-          // Binance failed — fall back to simulator if we never got a price
-          if (!settled) {
-            startSimulator(source, err instanceof Error ? err.message : "Binance fetch failed");
+          // Keep retrying on the poll interval; never invent a market price.
+          if (!cancelled) {
+            setConnected(false);
+            setError(err instanceof Error ? err.message : "Binance price fetch failed");
+            setIsLoading(false);
           }
+        } finally {
+          clearTimeout(timeout);
+          if (activeController === controller) activeController = null;
+          requestInFlight = false;
         }
       };
 
@@ -221,6 +191,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
       pollTimerRef.current = setInterval(fetchPrice, 2500);
       return () => {
         cancelled = true;
+        activeController?.abort();
         if (pollTimerRef.current) {
           clearInterval(pollTimerRef.current);
           pollTimerRef.current = null;
@@ -229,7 +200,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     }
 
     // ---------------------------------------------------------------
-    // Path B: Deriv WebSocket for synthetics (uses outer startSimulator)
+    // Path B: Deriv WebSocket for synthetics
     // ---------------------------------------------------------------
     if (source.derivSymbol) {
       let connectionTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -237,10 +208,9 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
       let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
       let wsIndex = 0;
       let hasReceivedLiveTick = false;
-      let simulatorStarted = false;
 
       const tryConnect = () => {
-        if (cancelled || simulatorStarted) return;
+        if (cancelled) return;
         if (wsIndex >= DERIV_WS_ENDPOINTS.length) {
           if (hasReceivedLiveTick) {
             setConnected(false);
@@ -250,8 +220,13 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
               tryConnect();
             }, 3000);
           } else {
-            simulatorStarted = true;
-            startSimulator(source, "All Deriv WS endpoints failed");
+            setConnected(false);
+            setIsLoading(false);
+            setError("Deriv price feed is unavailable. Retrying live prices…");
+            reconnectTimer = setTimeout(() => {
+              wsIndex = 0;
+              tryConnect();
+            }, 3000);
           }
           return;
         }
@@ -276,7 +251,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
         }, 10000); // 10s timeout — some networks are slow on first WS handshake
 
         ws.onopen = () => {
-          if (cancelled || simulatorStarted) return;
+          if (cancelled) return;
           if (connectionTimeout) clearTimeout(connectionTimeout);
           setCurrentSource("deriv-ws");
           setConnected(false);
@@ -291,13 +266,18 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
         };
 
         ws.onmessage = (event) => {
-          if (cancelled || simulatorStarted || wsRef.current !== ws) return;
+          if (cancelled || wsRef.current !== ws) return;
           try {
             const data = JSON.parse(event.data);
             if (data.msg_type === "tick" && data.tick) {
+              const next = Number(data.tick.quote);
+              if (!Number.isFinite(next) || next <= 0) {
+                setError("Invalid Deriv price response");
+                setIsLoading(false);
+                return;
+              }
               if (firstTickTimeout) clearTimeout(firstTickTimeout);
               receivedTickOnSocket = true;
-              const next = data.tick.quote;
               const prev = latestPriceRef.current;
               setPrevPrice(prev);
               setPrice(next);
@@ -309,7 +289,6 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
               setConnected(true);
               setError(null);
               hasReceivedLiveTick = true;
-              settled = true;
               if (data.subscription?.id) {
                 subscriptionIdRef.current = data.subscription.id;
               }
@@ -324,7 +303,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
         };
 
         ws.onerror = () => {
-          if (cancelled || simulatorStarted) return;
+          if (cancelled) return;
           if (connectionTimeout) clearTimeout(connectionTimeout);
           if (firstTickTimeout) clearTimeout(firstTickTimeout);
           try { ws.close(); } catch {}
@@ -332,7 +311,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
 
         ws.onclose = () => {
           if (firstTickTimeout) clearTimeout(firstTickTimeout);
-          if (cancelled || simulatorStarted) return;
+          if (cancelled) return;
           if (connectionTimeout) clearTimeout(connectionTimeout);
           setConnected(false);
           if (hasReceivedLiveTick) {
@@ -352,10 +331,6 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
         if (connectionTimeout) clearTimeout(connectionTimeout);
         if (firstTickTimeout) clearTimeout(firstTickTimeout);
         if (reconnectTimer) clearTimeout(reconnectTimer);
-        if (simTimerRef.current) {
-          clearInterval(simTimerRef.current);
-          simTimerRef.current = null;
-        }
         try {
           if (
             subscriptionIdRef.current &&
@@ -394,13 +369,14 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     }
   }, [isLive]);
 
+  const isCurrentSource = activeSourceKey === sourceKey;
   return {
-    price,
-    prevPrice,
-    direction,
-    isLoading,
-    error,
-    connected,
-    source: currentSource,
+    price: isCurrentSource ? price : null,
+    prevPrice: isCurrentSource ? prevPrice : null,
+    direction: isCurrentSource ? direction : null,
+    isLoading: isCurrentSource ? isLoading : !!source,
+    error: isCurrentSource ? error : null,
+    connected: isCurrentSource && connected,
+    source: isCurrentSource ? currentSource : "none",
   };
 }

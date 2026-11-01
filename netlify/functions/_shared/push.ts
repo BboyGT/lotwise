@@ -35,12 +35,17 @@ export interface PushEvent {
 }
 
 export interface PushDevice {
-  subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
+  subscription?: { endpoint: string; keys: { p256dh: string; auth: string } };
   alerts: BackgroundLevel[];
   trades: BackgroundLevel[];
   previousPrices: Record<string, number>;
   pendingEvents: PushEvent[];
+  pendingDeliveries?: Array<{ event: PushEvent; attempts: number }>;
   updatedAt: number;
+}
+
+export function pushFailureDisposition(statusCode: unknown): "expired" | "retry" {
+  return statusCode === 404 || statusCode === 410 ? "expired" : "retry";
 }
 
 export const pushStore = () => {
