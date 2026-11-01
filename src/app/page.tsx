@@ -228,7 +228,6 @@ export default function Home() {
     isLoading: livePrice.isLoading,
     error: livePrice.error,
     connected: livePrice.connected,
-    usingFallback: livePrice.source === "simulator" || livePrice.source === "none",
   };
 
   // ----- PWA install prompt -----
@@ -430,7 +429,7 @@ export default function Home() {
 
   // Auto-journal target/stop crossings while this symbol has a real live feed.
   useEffect(() => {
-    if (!livePrice.connected || !livePrice.price || livePrice.source === "simulator" || livePrice.source === "none") return;
+    if (!livePrice.connected || !livePrice.price || livePrice.source === "none") return;
     const closedAt = Date.now();
     const next = history.map((trade) => {
       if (trade.symbolId !== symbol.id || (trade.outcome && trade.outcome !== "pending")) return trade;
@@ -590,9 +589,7 @@ export default function Home() {
                 className={`rm-pulse-dot ${
                   hasLiveFeed
                     ? derivTicks.connected
-                      ? derivTicks.usingFallback
-                        ? "bg-amber-400"
-                        : "bg-emerald-400"
+                      ? "bg-emerald-400"
                       : "bg-amber-400"
                     : "bg-cyan-400"
                 }`}
@@ -601,21 +598,17 @@ export default function Home() {
               <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
                 {hasLiveFeed
                   ? derivTicks.connected
-                    ? derivTicks.usingFallback
-                      ? livePrice.source === "binance-rest"
-                        ? "Binance · Live"
-                        : livePrice.source === "tv-scanner"
-                        ? "TV · Live"
-                        : "Deriv WS · SIM"
-                      : livePrice.source === "binance-rest"
+                    ? livePrice.source === "binance-rest"
                       ? "Binance · Live"
                       : livePrice.source === "tv-scanner"
-                      ? "TV · Live"
-                      : "Deriv WS · Live"
-                    : "Connecting…"
+                        ? "TV · Live"
+                        : "Deriv WS · Live"
+                    : derivTicks.error
+                      ? "Feed unavailable"
+                      : "Connecting…"
                   : "TV Chart Mode"}
               </span>
-              {hasLiveFeed ? (
+              {hasLiveFeed && derivTicks.connected ? (
                 <Wifi className="h-3 w-3 text-emerald-400" />
               ) : (
                 <WifiOff className="h-3 w-3 text-slate-500" />
@@ -723,10 +716,6 @@ export default function Home() {
                       ? "BINANCE · REST"
                       : livePrice.source === "tv-scanner"
                       ? "TV · SCANNER"
-                      : livePrice.source === "simulator"
-                      ? symbol.derivSymbol
-                        ? "DERIV · SIM"
-                        : "BINANCE · SIM"
                       : "TRADINGVIEW"
                     : "TRADINGVIEW"}
                 </span>
@@ -767,19 +756,17 @@ export default function Home() {
                     <span>Source: <span className="text-slate-300">{symbol.derivSymbol || symbol.binanceSymbol || symbol.tvScannerSymbol || "—"}</span></span>
                     <span>·</span>
                     <span>
-                      {livePrice.source === "simulator"
-                        ? "Simulated (WS unreachable in sandbox)"
-                        : livePrice.source === "binance-rest"
-                        ? "Live · Binance REST"
-                        : livePrice.source === "tv-scanner"
-                        ? "Live · TradingView Scanner"
-                        : livePrice.source === "deriv-ws"
-                        ? "Live · Deriv WS"
+                      {livePrice.connected
+                        ? livePrice.source === "binance-rest"
+                          ? "Live · Binance REST"
+                          : livePrice.source === "tv-scanner"
+                            ? "Live · TradingView Scanner"
+                            : "Live · Deriv WS"
                         : derivTicks.isLoading
-                        ? "Subscribing…"
-                        : derivTicks.error
-                        ? "Error"
-                        : "Streaming"}
+                          ? "Connecting…"
+                          : livePrice.price
+                            ? "Feed unavailable · showing last quote"
+                            : "Feed unavailable"}
                     </span>
                   </div>
                   {derivTicks.error && (
@@ -1609,7 +1596,7 @@ export default function Home() {
         currentSymbolLabel={symbol.label}
         currentSymbolAssetClass={symbol.assetClass}
         currentPrice={livePrice.price}
-        currentPriceIsLive={livePrice.connected && livePrice.source !== "simulator" && livePrice.source !== "none"}
+        currentPriceIsLive={livePrice.connected && livePrice.source !== "none"}
         currentSymbolDecimals={symbol.decimals}
         tradeLevels={tradeLevelsForAlarm}
         backgroundTrades={backgroundTrades}

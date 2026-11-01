@@ -99,9 +99,20 @@ export function useAlarmManager(
   const settingsRef = useRef<AlarmSettings>(DEFAULT_SETTINGS);
   const firedTradeLevelsRef = useRef<Set<string>>(new Set());
   const previousPriceRef = useRef(new Map<string, number>());
+  const lastWatchedSymbolRef = useRef(currentSymbolId);
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  // A symbol may have changed while the user was viewing another market.
+  // Start with a fresh baseline on return so an old quote cannot produce a
+  // false crossing notification when the current live feed reconnects.
+  useEffect(() => {
+    if (lastWatchedSymbolRef.current !== currentSymbolId) {
+      previousPriceRef.current.clear();
+      lastWatchedSymbolRef.current = currentSymbolId;
+    }
+  }, [currentSymbolId]);
 
   // ----- load persisted state -----
   useEffect(() => {
