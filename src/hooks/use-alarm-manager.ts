@@ -375,6 +375,7 @@ export function useAlarmManager(
 
   return {
     alerts,
+    setAlerts,
     settings,
     setSettings,
     events,

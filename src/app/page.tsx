@@ -77,6 +77,7 @@ import { SyntheticCandleChart } from "@/components/synthetic-candle-chart";
 import { ConnectionDiagnostic } from "@/components/connection-diagnostic";
 import { AnimatedNumber } from "@/components/gt-mark";
 import { resolveTradeOutcome } from "@/lib/trade-outcomes";
+import type { LotwiseBackup } from "@/lib/private-backup";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
@@ -494,6 +495,23 @@ export default function Home() {
   function clearHistory() {
     setHistory([]);
     localStorage.removeItem(HISTORY_KEY);
+  }
+
+  function restoreBackup(data: LotwiseBackup) {
+    const restoredHistory = data.journal as TradeRecord[];
+    const restoredCurrency = CURRENCIES.includes(data.settings.displayCurrency as CurrencyCode)
+      ? data.settings.displayCurrency as CurrencyCode
+      : "USD";
+    setHistory(restoredHistory);
+    setDisplayCurrency(restoredCurrency);
+    setBalance(data.settings.balance);
+    setRiskPercent(data.settings.riskPercent);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(restoredHistory));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      displayCurrency: restoredCurrency,
+      balance: data.settings.balance,
+      riskPercent: data.settings.riskPercent,
+    }));
   }
 
   // ----- R:R bar geometry -----
@@ -1606,6 +1624,16 @@ export default function Home() {
           exitPrice: outcome.price,
           closedAt: outcome.timestamp,
         })}
+        backupSnapshot={{
+          format: "lotwise-private-backup",
+          version: 1,
+          createdAt: new Date().toISOString(),
+          journal: history,
+          alerts: [],
+          alarmSettings: { enabled: true, notifyEntry: true, notifySL: true, notifyTP: true, volume: 0.6, browserNotifications: true },
+          settings: { displayCurrency, balance, riskPercent },
+        }}
+        onRestoreBackup={restoreBackup}
       />
     </div>
   );

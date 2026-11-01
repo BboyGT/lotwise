@@ -122,7 +122,7 @@
 
 ### ⚖️ Legal & Compliance
 - **Terms of Service** (10 sections covering service nature, no financial advice, risk disclosure)
-- **Privacy Policy** (9 sections: privacy-first, no tracking, localStorage only)
+- **Privacy Policy** (9 sections: local-first storage, optional encrypted vault and background alerts, no analytics)
 - **Risk Disclaimer** (10 sections + problem gambling help links)
 
 ---
@@ -145,7 +145,7 @@
 ### Current limitations
 
 - Forex pip-value conversion quotes are configured for GBP, AUD, NZD, JPY, CHF, and CAD. Calculations that lack a live conversion use the catalog estimate and are marked as estimated.
-- Journal entries, alerts, and app settings are stored in the browser's local storage. They do not sync between devices and can be lost if site data is cleared.
+- Journal entries, alerts, and app settings are stored on the device by default. The Alerts panel's **Data** tab can export/import a password-encrypted backup file, or optionally save/restore an encrypted snapshot through a Netlify sync vault without an account. Vault updates are manual and replace the previous snapshot. The recovery key is required; if it is lost, the vault cannot be decrypted. Keep a separate copy of the key and continue to keep offline backup files.
 - The repository does not contain a built APK. Lotwise can be installed as a PWA; `scripts/build-apk.sh` documents the manual PWABuilder or Bubblewrap packaging steps.
 - Offline caching covers the app shell only. Live market quotes, chart updates, and price-triggered alerts need an internet connection.
 - Position sizing uses Lotwise's baseline contract and minimum-size assumptions, not a broker-specific instrument specification. Confirm contract size, lot step, and pip/point value with the broker before trading.
@@ -205,7 +205,7 @@
 | **Sound** | Web Audio API (synthesized tones, no audio files) |
 | **PWA** | Service Worker + Web App Manifest + custom icons |
 | **Notifications** | Browser Notification API + Service Worker push |
-| **Storage** | localStorage (no backend, no database, no tracking) |
+| **Storage** | Browser localStorage by default; optional AES-GCM encrypted exports and Netlify Blobs sync vault |
 | **Icons** | Lucide React |
 
 ---
@@ -282,6 +282,8 @@ To publish a GitHub Release and container image, update the version in `package.
 3. Build command: `npm run build` (already set in `netlify.toml`)
 4. Use the detected Next.js runtime with build command `npm run build` and publish directory `.next`
 5. Deploy
+
+The optional sync vault uses Netlify Blobs through the `/api/sync-vault` function. It requires no account or extra environment variables. The browser encrypts each snapshot with AES-GCM before upload; the recovery key's separate storage-access portion is used only to locate the ciphertext. Vault saves overwrite the previous snapshot, and restoring replaces the current device's journal, alerts, and preferences.
 
 ### Local Development
 ```bash
