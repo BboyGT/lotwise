@@ -80,6 +80,14 @@ import { resolveTradeOutcome } from "@/lib/trade-outcomes";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
+const QUOTE_CURRENCY_USD_FEEDS: Record<string, { symbol: string; direction: "direct" | "inverse" }> = {
+  GBP: { symbol: "FX:GBPUSD", direction: "direct" },
+  AUD: { symbol: "FX:AUDUSD", direction: "direct" },
+  NZD: { symbol: "FX:NZDUSD", direction: "direct" },
+  JPY: { symbol: "FX:USDJPY", direction: "inverse" },
+  CHF: { symbol: "FX:USDCHF", direction: "inverse" },
+  CAD: { symbol: "FX:USDCAD", direction: "inverse" },
+};
 
 interface TradeRecord {
   id: string;
@@ -198,6 +206,19 @@ export default function Home() {
     };
   }, [symbol.derivSymbol, symbol.binanceSymbol, symbol.tvScannerSymbol, symbol.decimals]);
   const livePrice = useLivePrice(livePriceSource);
+  const quoteCurrency = symbol.id.slice(-3);
+  const quoteConversion = useMemo(() => {
+    if (symbol.assetClass !== "forex" || quoteCurrency === "USD" || symbol.id.startsWith("USD")) return null;
+    const feed = QUOTE_CURRENCY_USD_FEEDS[quoteCurrency];
+    return feed ? { ...feed, decimals: 6 } : null;
+  }, [quoteCurrency, symbol.assetClass, symbol.id]);
+  const quoteConversionPrice = useLivePrice(quoteConversion ? {
+    tvScannerSymbol: quoteConversion.symbol,
+    decimals: quoteConversion.decimals,
+  } : null);
+  const quoteCurrencyToUsdRate = quoteConversionPrice.source === "tv-scanner" && quoteConversionPrice.price
+    ? quoteConversion?.direction === "inverse" ? 1 / quoteConversionPrice.price : quoteConversionPrice.price
+    : undefined;
   const hasLiveFeed = !!livePriceSource;
   // DerivTicks alias — maps livePrice fields to the names used throughout the JSX
   const derivTicks = {
@@ -234,8 +255,9 @@ export default function Home() {
         entry: parseFloat(stableEntry) || 0,
         stopLoss: parseFloat(stableStopLoss) || 0,
         takeProfit: parseFloat(stableTakeProfit) || 0,
+        quoteCurrencyToUsdRate,
       }),
-    [symbol, stableBalance, stableRiskPercent, stableEntry, stableStopLoss, stableTakeProfit]
+    [symbol, stableBalance, stableRiskPercent, stableEntry, stableStopLoss, stableTakeProfit, quoteCurrencyToUsdRate]
   );
 
   // ----- Alarm / Notification state -----
@@ -1088,20 +1110,24 @@ export default function Home() {
                   <div className="flex items-center justify-center gap-3 mt-3 text-[10px] font-mono uppercase tracking-wider text-slate-500">
                     <span>exact: <span className="text-slate-300">{calc.exactLot.toFixed(4)}</span></span>
                     <span className="text-slate-700">·</span>
-                    <span>step: <span className="text-slate-300">{symbol.lotStep}</span></span>
+                    <span>catalog step: <span className="text-slate-300">{symbol.lotStep}</span></span>
                     <span className="text-slate-700">·</span>
                     <span>min: <span className="text-slate-300">{symbol.minLot}</span></span>
                   </div>
+                  <p className={`mt-2 text-[10px] font-mono ${calc.pipValueEstimated ? "text-amber-300/80" : "text-slate-500"}`}>
+                    {calc.pipValueEstimated ? "Estimated" : "Live-converted"} pip/point value: {formatMoney(calc.pipValuePerLot, "USD")} per catalog lot
+                    {calc.pipValueEstimated && "; verify broker contract size and lot rules"}
+                  </p>
                   <div className="mt-3">
                     {calc.minLotOk ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] font-mono uppercase tracking-wider">
                         <span className="rm-pulse-dot bg-emerald-400" style={{ width: 6, height: 6 }} />
-                        Within broker min
+                        Within catalog minimum
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[10px] font-mono uppercase tracking-wider">
                         <span className="rm-pulse-dot bg-rose-400" style={{ width: 6, height: 6 }} />
-                        Below broker min ({symbol.minLot})
+                        Below catalog minimum ({symbol.minLot})
                       </span>
                     )}
                   </div>
@@ -1227,7 +1253,7 @@ export default function Home() {
                     <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 border-b border-rose-500/20">
                       <span className="rm-pulse-dot bg-rose-400" style={{ width: 6, height: 6 }} />
                       <span className="text-xs font-mono uppercase tracking-wider text-rose-300 font-semibold">
-                        Below Broker Minimum Lot
+                        Below Catalog Minimum Lot
                       </span>
                     </div>
 
@@ -1237,7 +1263,7 @@ export default function Home() {
                         Calculated lot <span className="text-rose-300 font-bold">{formatLot(calc.recommendedLot)}</span>
                         {" "}is below broker minimum of{" "}
                         <span className="text-amber-300 font-bold">{calc.minLotWarning.minLot}</span>{" "}
-                        for {symbol.label}.
+                        for {symbol.label}. Confirm the minimum and volume increment with your broker.
                       </p>
 
                       {/* Divider */}

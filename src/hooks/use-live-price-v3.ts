@@ -113,7 +113,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
       if (cancelled || settled) return;
       settled = true;
       setCurrentSource("simulator");
-      setConnected(true);
+      setConnected(false);
       setIsLoading(false);
       setError(null);
 
@@ -140,7 +140,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     // ---------------------------------------------------------------
     if (source.tvScannerSymbol && !source.derivSymbol && !source.binanceSymbol) {
       setCurrentSource("tv-scanner");
-      setConnected(true);
+      setConnected(false);
       setIsLoading(false);
 
       const fetchPrice = async () => {
@@ -163,6 +163,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
             setDirection(next > prev ? "up" : next < prev ? "down" : null);
           }
           latestPriceRef.current = next;
+          setConnected(true);
           settled = true;
         } catch (err) {
           if (!settled) {
@@ -187,7 +188,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     // ---------------------------------------------------------------
     if (source.binanceSymbol && !source.derivSymbol) {
       setCurrentSource("binance-rest");
-      setConnected(true);
+      setConnected(false);
       setIsLoading(false);
 
       const fetchPrice = async () => {
@@ -208,6 +209,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
             setDirection(next > prev ? "up" : next < prev ? "down" : null);
           }
           latestPriceRef.current = next;
+          setConnected(true);
           settled = true; // mark settled on first successful fetch
         } catch (err) {
           // Binance failed — fall back to simulator if we never got a price

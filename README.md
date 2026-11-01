@@ -66,7 +66,8 @@
 ### 📊 Position Calculator
 - **160 trading symbols** across 4 asset classes: 35 forex, 46 synthetic indices currently listed by Deriv's public market feed, 16 real indices, and 63 crypto symbols
 - **Exact lot size** auto-calculated from your risk percentage and SL distance
-- **Min-lot validation**: warns when calculated lot is below broker minimum, shows adjusted scenario
+- **Forex pip values** converted to USD from the live quote-currency rate for cross pairs; without that conversion the calculator labels the value as estimated
+- **Minimum-size validation**: warns when calculated lot is below the catalog baseline and shows the adjusted scenario; confirm broker minimums and volume steps
 - **Risk-to-reward visualizer**: color-coded bar showing SL zone (red), entry marker (gold), TP zone (green)
 - **0.5%–100% risk slider** with quick presets (1%, 2%, 5%, 10%, 25%, 50%, 100%)
 - **Multi-currency display**: switch between USD, EUR, GBP, NGN, JPY
@@ -136,6 +137,8 @@
 | **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 48 |
 
 > **Note on Synthetic Indices**: The browser connects directly to Deriv's public, no-auth market-data WebSocket. The current endpoint returned real quotes and candles during project verification. If a visitor's network blocks Deriv, the app clearly labels the fallback as simulated and disables live-only journal closure and alerts. Browser push alerts can run while the app is closed after notifications are enabled; the Netlify monitor checks prices about once per minute, so this is not a continuous tick stream and can miss brief crossings between checks.
+
+> **Position sizing note**: Forex pip values use a standard 100,000-unit lot and convert the quote currency into USD using live FX data where available. The displayed conversion is still an estimate if that feed is unavailable. Crypto sizing treats one catalog lot as one coin/token. Synthetic and index point values use Lotwise's baseline assumptions; CFD contract sizes and minimum trade increments vary by broker, so verify those figures against your broker before trading.
 
 ---
 
@@ -358,12 +361,12 @@ lotwise/
 ### Crypto (63 symbols)
 - **Major** (8): BTC, ETH, XRP, SOL, ADA, DOT, LTC, BCH
 - **Layer 1 & 2** (10): AVAX, ATOM, NEAR, ARB, OP, APT, MATIC, FIL, INJ, SUI
-- **DeFi & Oracles** (15): LINK, UNI, AAVE, MKR, RUNE, TIA, SEI, BNB, DYDX, CRV, SUSHI, YFI, COMP, SNX, 1INCH
+- **DeFi & Oracles** (15): LINK, UNI, AAVE, SKY (formerly MKR), RUNE, TIA, SEI, BNB, DYDX, CRV, SUSHI, YFI, COMP, SNX, 1INCH
 - **Layer 1 Additional** (8): TRX, ETC, XLM, VET, ALGO, ICP, EGLD, STX
 - **Gaming & NFT** (7): SAND, MANA, AXS, GALA, THETA, CHZ, ENJ
 - **Meme Coins** (5): DOGE, SHIB, PEPE, BONK, WIF
-- **AI & Infrastructure** (5): RNDR, GRT, LDO, ORDI, WLD
-- **Additional** (5): FTM, ZIL, FLOW, IOTA, JUP
+- **AI & Infrastructure** (5): RENDER (formerly RNDR), GRT, LDO, ORDI, WLD
+- **Additional** (5): Sonic (formerly FTM), ZIL, FLOW, IOTA, JUP
 
 ---
 
