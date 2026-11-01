@@ -8,13 +8,13 @@ echo ""
 
 # 1. Lint
 echo "▶ Linting..."
-bun run lint
+npm run lint
 echo "  ✅ Lint clean"
 echo ""
 
 # 2. Type check
 echo "▶ Type checking..."
-npx tsc --noEmit --skipLibCheck 2>&1 | grep -v "^examples/\|^skills/" || true
+npm run typecheck
 echo "  ✅ TypeScript clean"
 echo ""
 
@@ -25,7 +25,7 @@ echo ""
 
 # 4. Build Next.js
 echo "▶ Building Next.js production bundle..."
-bun run build
+npm run build
 echo "  ✅ Build complete"
 echo ""
 
@@ -39,8 +39,8 @@ echo "Static: .next/standalone/.next/static/"
 echo "Public: .next/standalone/public/"
 echo ""
 echo "To run production:"
-echo "  bun run start                    (app only)"
-echo "  bun run dev:relay & bun run start  (app + price relay)"
+echo "  npm start                    (app only)"
+echo "  npm run dev:all              (app + price relay in development)"
 echo ""
 echo "To deploy:"
 echo "  Vercel: Push to GitHub → Import on vercel.com"
