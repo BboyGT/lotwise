@@ -915,9 +915,10 @@ export default function Home() {
                       onChange={(e) => {
                         const entered = e.target.value.replace(/[^\d.]/g, "");
                         const [whole, ...fraction] = entered.split(".");
+                        const normalizedWhole = whole.replace(/^0+(?=\d)/, "");
                         const raw = fraction.length > 0
-                          ? `${whole}.${fraction.join("")}`
-                          : whole;
+                          ? `${normalizedWhole}.${fraction.join("")}`
+                          : normalizedWhole;
                         setBalanceInput(raw);
                         const parsed = Number(raw);
                         if (raw.trim() === "") setBalance(0);
