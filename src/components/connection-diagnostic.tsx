@@ -16,8 +16,8 @@ interface TestResult {
 }
 
 const DERIV_ENDPOINTS = [
-  { label: "Deriv WS (primary)", url: "wss://ws.derivws.com/websockets/v3?app_id=1089" },
-  { label: "Deriv WS (legacy)", url: "wss://ws.binaryws.com/websockets/v3?app_id=1089" },
+  { label: "Deriv public market data", url: "wss://api.derivws.com/trading/v1/options/ws/public" },
+  { label: "Deriv legacy API fallback", url: "wss://ws.derivws.com/websockets/v3?app_id=1089" },
 ];
 
 const BINANCE_ENDPOINT = "wss://stream.binance.com:9443/ws/btcusdt@trade";
@@ -163,8 +163,8 @@ export function ConnectionDiagnostic({ className }: ConnectionDiagnosticProps) {
                   <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
                   <span>
                     <strong>Deriv WS is blocked on your network.</strong> Synthetic prices
-                    will use simulation. This is typically caused by corporate firewalls,
-                    cloud hosting IP blocks, or network restrictions.
+                    will use simulation. This is typically caused by a network firewall,
+                    browser extension, or provider restriction.
                     <br /><br />
                     <strong>To get real synthetic prices:</strong> Open this app on a
                     different network (residential WiFi, mobile data) or deploy to a

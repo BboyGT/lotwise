@@ -6,16 +6,17 @@ import { useEffect, useRef, useState } from "react";
 // Live price hook — multi-source with intelligent fallback
 //
 // Sources tried in order:
-//   1. Deriv WebSocket (synthetics only) — wss://ws.derivws.com or wss://ws.binaryws.com
-//   2. Binance REST polling (crypto only) — https://api.binance.com/api/v3/ticker/price
-//   3. Simulator fallback (when above unreachable, e.g. sandbox networks)
+//   1. Deriv's current public market-data WebSocket (synthetics only)
+//   2. Legacy Deriv WebSocket fallback for older networks
+//   3. Binance REST polling (crypto only) — https://api.binance.com/api/v3/ticker/price
+//   4. Simulator fallback (when real sources are unreachable)
 //
-// On a real production deployment (non-cloud-blocked IP), WS will connect.
+// Price requests originate in the visitor's browser, independent of the app host.
 // ===========================================================================
 
 const DERIV_WS_ENDPOINTS = [
+  "wss://api.derivws.com/trading/v1/options/ws/public",
   "wss://ws.derivws.com/websockets/v3?app_id=1089",
-  "wss://ws.binaryws.com/websockets/v3?app_id=1089",
 ];
 
 const BINANCE_API = "https://api.binance.com/api/v3/ticker/price";
@@ -64,28 +65,6 @@ const FALLBACK_BASE: Record<string, number> = {
   JD50: 245,
   JD75: 412000,
   JD100: 1420,
-  // Step
-  stpidx0p1: 1000,
-  stpidx0p2: 1000,
-  stpidx0p3: 1000,
-  stpidx0p4: 1000,
-  stpidx0p5: 1000,
-  stpidx0p6: 1000,
-  stpidx0p7: 1000,
-  stpidx0p8: 1000,
-  stpidx0p9: 1000,
-  stpidx200: 1000,
-  stpidx300: 1000,
-  stpidx400: 1000,
-  stpidx500: 1000,
-  // Bull / Bear / Z / Smart
-  RDBULL: 9800,
-  RDBEAR: 9800,
-  ZVOLATILITY75: 385000,
-  smartidx5R: 5000,
-  smartidx10R: 5000,
-  smartidx20R: 5000,
-  smartidx40R: 5000,
 };
 
 interface PriceSource {
@@ -254,12 +233,26 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
     // ---------------------------------------------------------------
     if (source.derivSymbol) {
       let connectionTimeout: ReturnType<typeof setTimeout> | null = null;
+      let firstTickTimeout: ReturnType<typeof setTimeout> | null = null;
+      let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
       let wsIndex = 0;
+      let hasReceivedLiveTick = false;
+      let simulatorStarted = false;
 
       const tryConnect = () => {
-        if (cancelled || settled) return;
+        if (cancelled || simulatorStarted) return;
         if (wsIndex >= DERIV_WS_ENDPOINTS.length) {
-          startSimulator(source, "All Deriv WS endpoints failed");
+          if (hasReceivedLiveTick) {
+            setConnected(false);
+            setError("Deriv connection lost. Retrying live prices…");
+            reconnectTimer = setTimeout(() => {
+              wsIndex = 0;
+              tryConnect();
+            }, 3000);
+          } else {
+            simulatorStarted = true;
+            startSimulator(source, "All Deriv WS endpoints failed");
+          }
           return;
         }
 
@@ -267,6 +260,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
         wsIndex += 1;
 
         let ws: WebSocket;
+        let receivedTickOnSocket = false;
         try {
           ws = new WebSocket(url);
           wsRef.current = ws;
@@ -276,25 +270,33 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
         }
 
         connectionTimeout = setTimeout(() => {
-          if (!cancelled && !settled && ws.readyState !== WebSocket.OPEN) {
+          if (!cancelled && wsRef.current === ws && ws.readyState !== WebSocket.OPEN) {
             try { ws.close(); } catch {}
-            tryConnect();
           }
         }, 10000); // 10s timeout — some networks are slow on first WS handshake
 
         ws.onopen = () => {
-          if (cancelled || settled) return;
+          if (cancelled || simulatorStarted) return;
           if (connectionTimeout) clearTimeout(connectionTimeout);
           setCurrentSource("deriv-ws");
-          setConnected(true);
+          setConnected(false);
+          setError(null);
+          firstTickTimeout = setTimeout(() => {
+            if (!cancelled && !receivedTickOnSocket && wsRef.current === ws) {
+              try { ws.close(); } catch {}
+              tryConnect();
+            }
+          }, 10000);
           ws.send(JSON.stringify({ ticks: source.derivSymbol, subscribe: 1 }));
         };
 
         ws.onmessage = (event) => {
-          if (cancelled || settled && currentSource !== "deriv-ws") return;
+          if (cancelled || simulatorStarted || wsRef.current !== ws) return;
           try {
             const data = JSON.parse(event.data);
             if (data.msg_type === "tick" && data.tick) {
+              if (firstTickTimeout) clearTimeout(firstTickTimeout);
+              receivedTickOnSocket = true;
               const next = data.tick.quote;
               const prev = latestPriceRef.current;
               setPrevPrice(prev);
@@ -304,6 +306,9 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
               }
               latestPriceRef.current = next;
               setIsLoading(false);
+              setConnected(true);
+              setError(null);
+              hasReceivedLiveTick = true;
               settled = true;
               if (data.subscription?.id) {
                 subscriptionIdRef.current = data.subscription.id;
@@ -311,6 +316,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
             } else if (data.error) {
               setError(data.error.message || "Deriv API error");
               setIsLoading(false);
+              try { ws.close(); } catch {}
             }
           } catch {
             // ignore
@@ -318,19 +324,23 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
         };
 
         ws.onerror = () => {
-          if (cancelled || settled) return;
+          if (cancelled || simulatorStarted) return;
           if (connectionTimeout) clearTimeout(connectionTimeout);
+          if (firstTickTimeout) clearTimeout(firstTickTimeout);
           try { ws.close(); } catch {}
-          tryConnect();
         };
 
         ws.onclose = () => {
-          if (cancelled || settled) return;
+          if (firstTickTimeout) clearTimeout(firstTickTimeout);
+          if (cancelled || simulatorStarted) return;
           if (connectionTimeout) clearTimeout(connectionTimeout);
-          if (latestPriceRef.current == null) {
+          setConnected(false);
+          if (hasReceivedLiveTick) {
+            setError("Deriv connection lost. Retrying live prices…");
+            wsIndex = DERIV_WS_ENDPOINTS.length;
             tryConnect();
           } else {
-            startSimulator(source, "Connection closed");
+            tryConnect();
           }
         };
       };
@@ -340,6 +350,8 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
       return () => {
         cancelled = true;
         if (connectionTimeout) clearTimeout(connectionTimeout);
+        if (firstTickTimeout) clearTimeout(firstTickTimeout);
+        if (reconnectTimer) clearTimeout(reconnectTimer);
         if (simTimerRef.current) {
           clearInterval(simTimerRef.current);
           simTimerRef.current = null;

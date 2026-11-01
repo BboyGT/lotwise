@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Bell, BellRing, Plus, Trash2, X, Volume2, VolumeX, Check, RotateCcw, Settings, AlertTriangle, ArrowUp, ArrowDown, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,31 @@ import { useAlarmManager } from "@/hooks/use-alarm-manager";
 import { testSound, primeAudioContext } from "@/lib/sound-engine";
 import { formatPrice } from "@/lib/calculator";
 import { getSymbol } from "@/lib/symbols-v3";
+
+interface MonitoredTrade {
+  id: string;
+  symbolId: string;
+  symbolLabel: string;
+  entry: number;
+  stopLoss: number;
+  takeProfit: number;
+  actualLoss: number;
+  actualProfit: number;
+  outcome?: string;
+  derivSymbol?: string;
+  binanceSymbol?: string;
+  tvScannerSymbol?: string;
+}
+
+interface BackgroundOutcome {
+  tradeId: string;
+  outcome: "win" | "loss";
+  realizedPnL: number;
+  price: number;
+  timestamp: number;
+}
+
+const PUSH_DEVICE_KEY = "lotwise.push-device.v1";
 
 interface AlarmPanelProps {
   open: boolean;
@@ -29,6 +54,8 @@ interface AlarmPanelProps {
     stopLoss?: number;
     takeProfit?: number;
   } | null;
+  backgroundTrades: MonitoredTrade[];
+  onBackgroundTradeOutcome: (outcome: BackgroundOutcome) => void;
 }
 
 export function AlarmPanel({
@@ -41,6 +68,8 @@ export function AlarmPanel({
   currentPriceIsLive,
   currentSymbolDecimals,
   tradeLevels,
+  backgroundTrades,
+  onBackgroundTradeOutcome,
 }: AlarmPanelProps) {
   const manager = useAlarmManager(
     currentSymbolId,
@@ -53,55 +82,117 @@ export function AlarmPanel({
   const [newAlertPrice, setNewAlertPrice] = useState("");
   const [newAlertDirection, setNewAlertDirection] = useState<"above" | "below">("above");
   const [newAlertLabel, setNewAlertLabel] = useState("");
-
-  // Sync active alerts + trades to service worker for background monitoring
+  const [backgroundPushStatus, setBackgroundPushStatus] = useState<"off" | "working" | "ready" | "unavailable" | "error">("off");
+  const outcomeCallbackRef = useRef(onBackgroundTradeOutcome);
   useEffect(() => {
-    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    outcomeCallbackRef.current = onBackgroundTradeOutcome;
+  }, [onBackgroundTradeOutcome]);
 
-    // Sync alerts
-    const activeAlerts = manager.alerts
-      .filter((a) => {
-        const feed = getSymbol(a.symbolId);
-        return a.status === "active" && (feed.binanceSymbol || feed.tvScannerSymbol);
-      })
-      .map((a) => {
-        const feed = getSymbol(a.symbolId);
-        return {
-          id: a.id,
-          symbolId: a.symbolId,
-          symbolLabel: a.symbolLabel,
-          targetPrice: a.price,
-          direction: a.direction,
-          type: a.type,
-          label: a.label,
+  const syncBackgroundPush = useCallback(async () => {
+    if (typeof window === "undefined" || !window.isSecureContext ||
+        !("serviceWorker" in navigator) || typeof Notification === "undefined" ||
+        !("PushManager" in window)) {
+      setBackgroundPushStatus("unavailable");
+      return;
+    }
+    if (Notification.permission !== "granted") return;
+
+    setBackgroundPushStatus("working");
+    try {
+      const configResponse = await fetch("/api/push/config", { cache: "no-store" });
+      if (!configResponse.ok) {
+        setBackgroundPushStatus("unavailable");
+        return;
+      }
+      const config = await configResponse.json() as { publicKey?: string };
+      if (!config.publicKey) throw new Error("Push key is missing.");
+
+      let deviceToken = localStorage.getItem(PUSH_DEVICE_KEY);
+      if (!deviceToken) {
+        const random = crypto.getRandomValues(new Uint8Array(32));
+        deviceToken = Array.from(random, (byte) => byte.toString(16).padStart(2, "0")).join("");
+        localStorage.setItem(PUSH_DEVICE_KEY, deviceToken);
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        const applicationServerKey = Uint8Array.from(atob(config.publicKey.replace(/-/g, "+").replace(/_/g, "/")), (char) => char.charCodeAt(0));
+        subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+      }
+
+      const alerts = manager.alerts.flatMap((alert) => {
+        if (alert.status !== "active") return [];
+        const feed = getSymbol(alert.symbolId);
+        if (!feed.derivSymbol && !feed.binanceSymbol && !feed.tvScannerSymbol) return [];
+        return [{
+          id: alert.id,
+          symbolId: alert.symbolId,
+          symbolLabel: alert.symbolLabel,
+          price: alert.price,
+          direction: alert.direction,
+          label: alert.label,
+          derivSymbol: feed.derivSymbol,
           binanceSymbol: feed.binanceSymbol,
           tvScannerSymbol: feed.tvScannerSymbol,
-          derivSymbol: feed.derivSymbol,
-        };
+        }];
       });
+      const trades = backgroundTrades.filter((trade) => trade.derivSymbol || trade.binanceSymbol || trade.tvScannerSymbol);
+      const syncResponse = await fetch("/api/push/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync", deviceToken, subscription: subscription.toJSON(), alerts, trades }),
+      });
+      if (!syncResponse.ok) throw new Error(`Background monitoring setup failed (${syncResponse.status}).`);
+      const result = await syncResponse.json() as { events?: Array<BackgroundOutcome & { type: string; alertId?: string }> };
+      for (const event of result.events ?? []) {
+        if (event.type === "alert" && event.alertId) manager.markAlertTriggered(event.alertId);
+        if ((event.type === "win" || event.type === "loss") && event.tradeId) {
+          outcomeCallbackRef.current({
+            tradeId: event.tradeId,
+            outcome: event.type,
+            realizedPnL: event.realizedPnL,
+            price: event.price,
+            timestamp: event.timestamp,
+          });
+        }
+      }
+      setBackgroundPushStatus("ready");
+    } catch (error) {
+      console.warn("[PWA] Background push setup failed:", error);
+      setBackgroundPushStatus("error");
+    }
+  }, [backgroundTrades, manager.alerts, manager.markAlertTriggered]);
 
-    // Sync trades with SL/TP for background monitoring
-    // The parent component needs to pass trade data — we use a global window property
-    // set by the page when trades are saved
-    const trades = (window as unknown as { __lotwiseTrades?: unknown[] }).__lotwiseTrades || [];
-    navigator.serviceWorker?.ready.then((registration) => registration.active?.postMessage({
-      type: "SYNC_TRADES",
-      trades,
-    })).catch(() => {});
-    navigator.serviceWorker?.ready.then((registration) => registration.active?.postMessage({
-      type: "SYNC_ALERTS",
-      alerts: activeAlerts,
-    })).catch(() => {});
-  }, [manager.alerts]);
+  const disableBackgroundPush = useCallback(async () => {
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager?.getSubscription();
+        await subscription?.unsubscribe();
+      } catch {}
+    }
+    const deviceToken = localStorage.getItem(PUSH_DEVICE_KEY);
+    if (deviceToken) {
+      void fetch("/api/push/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unsubscribe", deviceToken }),
+      }).catch(() => {});
+      localStorage.removeItem(PUSH_DEVICE_KEY);
+    }
+    setBackgroundPushStatus("off");
+  }, []);
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === "ALERT_TRIGGERED") manager.markAlertTriggered(event.data.alertId);
-    };
-    navigator.serviceWorker.addEventListener("message", onMessage);
-    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
-  }, [manager.markAlertTriggered]);
+    if (!manager.settings.browserNotifications) {
+      void disableBackgroundPush();
+      return;
+    }
+    if (manager.permission === "granted") void syncBackgroundPush();
+  }, [disableBackgroundPush, manager.permission, manager.settings.browserNotifications, syncBackgroundPush]);
+
+
 
   if (!open) return null;
 
@@ -125,7 +216,11 @@ export function AlarmPanel({
 
   function handleEnableNotifications() {
     primeAudioContext();
-    manager.requestNotificationPermission();
+    if (manager.permission === "granted") {
+      void syncBackgroundPush();
+    } else {
+      void manager.requestNotificationPermission();
+    }
   }
 
   async function handleTestSound(type: "entry" | "stopLoss" | "takeProfit" | "custom") {
@@ -563,6 +658,25 @@ export function AlarmPanel({
                     }}
                   />
                 </div>
+                <p className="text-[10px] leading-relaxed text-slate-500">
+                  {backgroundPushStatus === "ready"
+                    ? "Background push is on. Closed-app price checks run about once per minute."
+                    : backgroundPushStatus === "unavailable"
+                    ? "This deployment has not configured background push yet. On-page alerts still work."
+                    : backgroundPushStatus === "error"
+                    ? "Could not enable background push. Check browser notification permission and try again."
+                    : "Enable background push to receive server-checked alerts while Lotwise is closed."}
+                </p>
+                {manager.permission === "granted" && manager.settings.browserNotifications && backgroundPushStatus !== "ready" && (
+                  <Button
+                    onClick={handleEnableNotifications}
+                    variant="outline"
+                    size="sm"
+                    className="w-full bg-black/40 border-white/10 text-slate-300 hover:bg-white/5 hover:text-amber-300 font-mono text-[10px] uppercase tracking-wider"
+                  >
+                    Enable background alerts
+                  </Button>
+                )}
                 {manager.permission !== "granted" &&
                   manager.permission !== "unsupported" && (
                     <Button

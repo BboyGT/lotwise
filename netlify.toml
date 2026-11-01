@@ -4,6 +4,9 @@
 [build.environment]
   NODE_VERSION = "22"
 
+[functions]
+  directory = "netlify/functions"
+
 # Service worker must always be revalidated so PWA updates roll out
 [[headers]]
   for = "/sw.js"

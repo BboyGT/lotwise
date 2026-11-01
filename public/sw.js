@@ -2,7 +2,7 @@
 // Monitors crypto (Binance), forex & indices (TradingView Scanner) in background.
 // Stores auto-outcomes in Cache API, syncs to page on reopen.
 
-const CACHE_NAME = "lotwise-v3";
+const CACHE_NAME = "lotwise-v4";
 const STATIC_ASSETS = [
   "/",
   "/logo.svg",
@@ -99,6 +99,26 @@ self.addEventListener("message", (event) => {
       clearPendingOutcomes();
     });
   }
+});
+
+// Remote Web Push is the reliable background path; service-worker timers below
+// remain a best-effort enhancement while a browser chooses to keep this worker alive.
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data?.json() || {};
+  } catch {}
+  const title = typeof payload.title === "string" ? payload.title : "Lotwise alert";
+  const body = typeof payload.body === "string" ? payload.body : "A monitored price level was reached.";
+  const url = typeof payload.url === "string" && payload.url.startsWith("/") ? payload.url : "/";
+  event.waitUntil(self.registration.showNotification(title, {
+    body,
+    icon: "/icon-192.png",
+    badge: "/icon-192-maskable.png",
+    tag: typeof payload.tag === "string" ? payload.tag : undefined,
+    requireInteraction: true,
+    data: { url, event: payload.event },
+  }));
 });
 
 async function startBackgroundPolling() {
@@ -323,12 +343,18 @@ async function fireTradeNotification(trade, outcome, price) {
 // Handle notification click
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const target = event.notification.data?.url;
+  const targetUrl = typeof target === "string" && target.startsWith("/")
+    ? new URL(target, self.location.origin).href
+    : self.location.origin + "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window" }).then((clients) => {
       for (const client of clients) {
-        if ("focus" in client) return client.focus();
+        if ("focus" in client) {
+          return client.navigate?.(targetUrl).then(() => client.focus()) ?? client.focus();
+        }
       }
-      if (self.clients.openWindow) return self.clients.openWindow("/");
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
     })
   );
 });

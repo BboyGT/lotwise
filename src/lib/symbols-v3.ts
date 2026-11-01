@@ -214,6 +214,10 @@ export const SYMBOLS: SymbolSpec[] = [
   // ============================================================
   synth("BOOM300", "Boom 300", "DERIV:BOOM_300", "BOOM300N", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bullish spike per 300 ticks (most frequent)."),
+  synth("BOOM50", "Boom 50", "DERIV:BOOM_50", "BOOM50", "Boom & Crash", 0.2,
+    "Deriv synthetic index with frequent upward spikes."),
+  synth("BOOM150", "Boom 150", "DERIV:BOOM_150", "BOOM150N", "Boom & Crash", 0.2,
+    "Deriv synthetic index with frequent upward spikes."),
   synth("BOOM500", "Boom 500", "DERIV:BOOM_500", "BOOM500", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bullish spike per 500 ticks."),
   synth("BOOM600", "Boom 600", "DERIV:BOOM_600", "BOOM600", "Boom & Crash", 0.2,
@@ -224,6 +228,10 @@ export const SYMBOLS: SymbolSpec[] = [
     "Deriv. Min lot 0.20. Avg 1 bullish spike per 1000 ticks."),
   synth("CRASH300", "Crash 300", "DERIV:CRASH_300", "CRASH300N", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bearish drop per 300 ticks (most frequent)."),
+  synth("CRASH50", "Crash 50", "DERIV:CRASH_50", "CRASH50", "Boom & Crash", 0.2,
+    "Deriv synthetic index with frequent downward spikes."),
+  synth("CRASH150", "Crash 150", "DERIV:CRASH_150", "CRASH150N", "Boom & Crash", 0.2,
+    "Deriv synthetic index with frequent downward spikes."),
   synth("CRASH500", "Crash 500", "DERIV:CRASH_500", "CRASH500", "Boom & Crash", 0.2,
     "Deriv. Min lot 0.20. Avg 1 bearish drop per 500 ticks."),
   synth("CRASH600", "Crash 600", "DERIV:CRASH_600", "CRASH600", "Boom & Crash", 0.2,
@@ -282,34 +290,18 @@ export const SYMBOLS: SymbolSpec[] = [
     "Deriv. Jump index — 100% volatility."),
 
   // ============================================================
-  // SYNTHETIC — STEP INDICES (9)
+  // SYNTHETIC — STEP INDICES (Deriv's currently active range)
   // ============================================================
-  synth("STEP01", "Step Index (0.1)", "DERIV:STPIDX_0P1", "stpidx0p1", "Step Indices", 0.1,
-    "Deriv. Step size 0.1. Uniform distribution."),
-  synth("STEP02", "Step Index (0.2)", "DERIV:STPIDX_0P2", "stpidx0p2", "Step Indices", 0.1,
-    "Deriv. Step size 0.2."),
-  synth("STEP03", "Step Index (0.3)", "DERIV:STPIDX_0P3", "stpidx0p3", "Step Indices", 0.1,
-    "Deriv. Step size 0.3."),
-  synth("STEP04", "Step Index (0.4)", "DERIV:STPIDX_0P4", "stpidx0p4", "Step Indices", 0.1,
-    "Deriv. Step size 0.4."),
-  synth("STEP05", "Step Index (0.5)", "DERIV:STPIDX_0P5", "stpidx0p5", "Step Indices", 0.1,
-    "Deriv. Step size 0.5."),
-  synth("STEP06", "Step Index (0.6)", "DERIV:STPIDX_0P6", "stpidx0p6", "Step Indices", 0.1,
-    "Deriv. Step size 0.6."),
-  synth("STEP07", "Step Index (0.7)", "DERIV:STPIDX_0P7", "stpidx0p7", "Step Indices", 0.1,
-    "Deriv. Step size 0.7."),
-  synth("STEP08", "Step Index (0.8)", "DERIV:STPIDX_0P8", "stpidx0p8", "Step Indices", 0.1,
-    "Deriv. Step size 0.8."),
-  synth("STEP09", "Step Index (0.9)", "DERIV:STPIDX_0P9", "stpidx0p9", "Step Indices", 0.1,
-    "Deriv. Step size 0.9."),
-  synth("STEP200", "Step Index (200)", "DERIV:STPIDX_200", "stpidx200", "Step Indices", 0.1,
-    "Deriv. Step size 200."),
-  synth("STEP300", "Step Index (300)", "DERIV:STPIDX_300", "stpidx300", "Step Indices", 0.1,
-    "Deriv. Step size 300."),
-  synth("STEP400", "Step Index (400)", "DERIV:STPIDX_400", "stpidx400", "Step Indices", 0.1,
-    "Deriv. Step size 400."),
-  synth("STEP500", "Step Index (500)", "DERIV:STPIDX_500", "stpidx500", "Step Indices", 0.1,
-    "Deriv. Step size 500."),
+  synth("STEP100", "Step Index 100", "DERIV:STEP_100", "stpRNG", "Step Indices", 0.1,
+    "Deriv Step Index 100."),
+  synth("STEP200", "Step Index 200", "DERIV:STEP_200", "stpRNG2", "Step Indices", 0.1,
+    "Deriv Step Index 200."),
+  synth("STEP300", "Step Index 300", "DERIV:STEP_300", "stpRNG3", "Step Indices", 0.1,
+    "Deriv Step Index 300."),
+  synth("STEP400", "Step Index 400", "DERIV:STEP_400", "stpRNG4", "Step Indices", 0.1,
+    "Deriv Step Index 400."),
+  synth("STEP500", "Step Index 500", "DERIV:STEP_500", "stpRNG5", "Step Indices", 0.1,
+    "Deriv Step Index 500."),
 
   // ============================================================
   // SYNTHETIC — BULL, BEAR, Z & SMART INDICES
@@ -318,16 +310,20 @@ export const SYMBOLS: SymbolSpec[] = [
     "Deriv. Simulates bullish market behaviour."),
   synth("BEARMARKET", "Bear Market Index", "DERIV:RD_BEAR", "RDBEAR", "Bull/Bear/Smart", 0.01,
     "Deriv. Simulates bearish market behaviour."),
-  synth("ZVOL75", "Z Volatility 75 Index", "DERIV:Z_VOLATILITY_75", "ZVOLATILITY75", "Bull/Bear/Smart", 0.01,
-    "Deriv. Stable volatility variant."),
-  synth("SMART5R", "Smart 5R Index", "DERIV:SMART_5R", "smartidx5R", "Bull/Bear/Smart", 0.01,
-    "Deriv. 5 resets per cycle."),
-  synth("SMART10R", "Smart 10R Index", "DERIV:SMART_10R", "smartidx10R", "Bull/Bear/Smart", 0.01,
-    "Deriv. 10 resets per cycle."),
-  synth("SMART20R", "Smart 20R Index", "DERIV:SMART_20R", "smartidx20R", "Bull/Bear/Smart", 0.01,
-    "Deriv. 20 resets per cycle."),
-  synth("SMART40R", "Smart 40R Index", "DERIV:SMART_40R", "smartidx40R", "Bull/Bear/Smart", 0.01,
-    "Deriv. 40 resets per cycle."),
+  synth("RANGEBREAK100", "Range Break 100 Index", "DERIV:RB_100", "RB100", "Range Break", 0.01,
+    "Deriv Range Break 100 synthetic index."),
+  synth("RANGEBREAK200", "Range Break 200 Index", "DERIV:RB_200", "RB200", "Range Break", 0.01,
+    "Deriv Range Break 200 synthetic index."),
+  synth("BASKETAUD", "AUD Basket", "DERIV:WLD_AUD", "WLDAUD", "Baskets", 0.01,
+    "Deriv synthetic basket tracking the Australian dollar."),
+  synth("BASKETEUR", "EUR Basket", "DERIV:WLD_EUR", "WLDEUR", "Baskets", 0.01,
+    "Deriv synthetic basket tracking the euro."),
+  synth("BASKETGBP", "GBP Basket", "DERIV:WLD_GBP", "WLDGBP", "Baskets", 0.01,
+    "Deriv synthetic basket tracking the British pound."),
+  synth("BASKETUSD", "USD Basket", "DERIV:WLD_USD", "WLDUSD", "Baskets", 0.01,
+    "Deriv synthetic basket tracking the US dollar."),
+  synth("BASKETXAU", "Gold Basket", "DERIV:WLD_XAU", "WLDXAU", "Baskets", 0.01,
+    "Deriv synthetic basket tracking gold."),
 
   // ============================================================
   // INDICES — US (4)
@@ -527,8 +523,35 @@ export function symbolsByClass(assetClass: AssetClass): SymbolSpec[] {
   return SYMBOLS.filter((s) => s.assetClass === assetClass);
 }
 
+const LEGACY_SYNTHETIC_SYMBOLS: Record<string, SymbolSpec> = Object.fromEntries(
+  [
+    ...Array.from({ length: 9 }, (_, index) => {
+      const step = (index + 1) / 10;
+      return [`STEP0${index + 1}`, `Step Index (${step.toFixed(1)})`];
+    }),
+    ["ZVOL75", "Z Volatility 75 Index"],
+    ["SMART5R", "Smart 5R Index"],
+    ["SMART10R", "Smart 10R Index"],
+    ["SMART20R", "Smart 20R Index"],
+    ["SMART40R", "Smart 40R Index"],
+  ].map(([id, label]) => [id, {
+    id,
+    label,
+    tvSymbol: "",
+    assetClass: "synthetic",
+    category: "Unavailable legacy symbol",
+    minLot: 0.01,
+    lotStep: 0.01,
+    contractSize: 1,
+    pipSize: 1,
+    pipValuePerLot: 1,
+    decimals: 2,
+    note: "This symbol is no longer available from Deriv's public market data feed.",
+  } satisfies SymbolSpec]),
+);
+
 export function getSymbol(id: string): SymbolSpec {
-  return SYMBOLS.find((s) => s.id === id) ?? SYMBOLS[0];
+  return SYMBOLS.find((s) => s.id === id) ?? LEGACY_SYNTHETIC_SYMBOLS[id] ?? SYMBOLS[0];
 }
 
 // Group symbols in an asset class by their `category` field.
