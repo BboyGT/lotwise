@@ -20,9 +20,9 @@
 
 <div align="center">
 
-<img src="download/screenshots/01-synthetic-overview.png" alt="Lotwise Position Terminal" width="100%">
+<img src="public/logo.svg" alt="Lotwise logo" width="160">
 
-*Dark-mode trading terminal aesthetic with live price feeds, candlestick charts, and real-time position sizing*
+*Risk-first position sizing and trade journal for Forex, Deriv synthetic indices, real indices, and crypto.*
 
 </div>
 
@@ -97,9 +97,9 @@
 - **Preview button** to test each alarm before relying on it
 
 ### 📝 Trade Journal & Equity Curve
-- **Save trades** with journal notes (up to 300 characters)
-- **Outcome tracking** — mark trades as Win / Loss / Breakeven / Pending
-- **Equity curve chart** — SVG-based, updates in real-time as you mark outcomes
+- **Save trades** with journal notes (up to 200 characters)
+- **Automatic outcomes** — live feed price crossings record win/loss, exit price, close time, and estimated realized P/L; outcomes can also be edited manually
+- **Equity curve chart** — SVG-based, includes completed trades only and orders them by close time
 - **Win-rate statistics** — recorded trades, wins, win rate %
 - **Replay function** — reload any saved trade's exact parameters
 - **localStorage persistence** — survives page refresh
@@ -134,7 +134,7 @@
 | **Indices** | TradingView Scanner API | ✅ Real-time (no key needed) | 16 |
 | **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 48 |
 
-> **Note on Synthetic Indices**: Deriv blocks WebSocket connections from cloud/datacenter IPs. If running on a cloud server, synthetic prices will use a simulator fallback. On residential IPs or local development, real Deriv prices stream live. Crypto, Forex, and Indices prices work everywhere via REST APIs.
+> **Note on Synthetic Indices**: The Deriv WebSocket connection is opened by each visitor's browser. If the visitor's network, provider, or IP cannot reach Deriv, the UI falls back to simulated prices. Launching on localhost or Netlify does not itself change simulated prices into live prices. Automatic journal closure uses available real price feeds while the app is open; a background service worker may monitor supported HTTP feeds when the browser permits it.
 
 ---
 
@@ -246,9 +246,9 @@ The calculator is a pure function (`src/lib/calculator.ts`) and is covered by un
 
 ## Continuous integration and releases
 
-GitHub Actions runs linting, TypeScript checks, calculator tests, and a production build on pushes and pull requests to `main`, using Node.js 20 and 22. CodeQL scans the JavaScript and TypeScript code, and Dependabot checks npm dependencies and GitHub Actions weekly.
+GitHub Actions runs linting, TypeScript checks, tests, and a production build on pushes and pull requests to `main`, using Node.js 20 and 22. CodeQL scans the JavaScript and TypeScript code, and Dependabot checks npm dependencies and GitHub Actions weekly. Test output is retained in the workflow run logs; temporary local tool captures are intentionally not versioned.
 
-To publish a GitHub Release, update the version in `package.json` and `package-lock.json`, then push a matching version tag such as `v1.1.0`. The release workflow reruns CI and creates release notes from merged changes. Lotwise is a web application, so releases are GitHub source releases; the project is not published to npm.
+To publish a GitHub Release and container image, update the version in `package.json` and `package-lock.json`, then push a matching version tag such as `v1.1.0`. The release workflow reruns CI, creates release notes, and publishes a Docker image to GitHub Container Registry (`ghcr.io`). Lotwise is an application, not an npm library.
 
 ---
 

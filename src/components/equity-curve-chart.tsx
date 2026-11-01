@@ -12,6 +12,7 @@ export interface TradeRecord {
   rrRatio: number;
   outcome?: "win" | "loss" | "breakeven" | "pending";
   realizedPnL?: number;
+  closedAt?: number;
   symbolLabel: string;
   note?: string;
 }
@@ -24,8 +25,7 @@ interface EquityCurveChartProps {
 
 /**
  * Equity curve visualization of saved trade history.
- * Each trade's realized P/L (if user-set) is added cumulatively.
- * If outcome is "pending", assumes the planned loss (conservative).
+ * Only completed trades contribute to realized equity.
  */
 export function EquityCurveChart({
   trades,
@@ -34,7 +34,9 @@ export function EquityCurveChart({
 }: EquityCurveChartProps) {
   const data = useMemo(() => {
     // Sort oldest → newest
-    const sorted = [...trades].sort((a, b) => a.timestamp - b.timestamp);
+    const sorted = trades
+      .filter((trade) => trade.outcome && trade.outcome !== "pending")
+      .sort((a, b) => (a.closedAt ?? a.timestamp) - (b.closedAt ?? b.timestamp));
     let equity = startingBalance;
     const points: {
       x: number;
@@ -59,9 +61,6 @@ export function EquityCurveChart({
         pnl = -t.actualLoss;
       } else if (outcome === "breakeven") {
         pnl = 0;
-      } else {
-        // pending — assume planned loss (conservative)
-        pnl = -t.actualLoss;
       }
 
       equity += pnl;
@@ -71,7 +70,7 @@ export function EquityCurveChart({
         pnl,
         outcome,
         symbol: t.symbolLabel,
-        timestamp: t.timestamp,
+        timestamp: t.closedAt ?? t.timestamp,
         note: t.note,
       });
     });
