@@ -77,6 +77,7 @@ import { SyntheticCandleChart } from "@/components/synthetic-candle-chart";
 import { ConnectionDiagnostic } from "@/components/connection-diagnostic";
 import { AnimatedNumber } from "@/components/gt-mark";
 import { resolveTradeOutcome } from "@/lib/trade-outcomes";
+import { accountPnLDeltas, realizedTradePnL } from "@/lib/account-ledger";
 import type { LotwiseBackup } from "@/lib/private-backup";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
@@ -92,6 +93,7 @@ const QUOTE_CURRENCY_USD_FEEDS: Record<string, { symbol: string; direction: "dir
 
 interface TradeRecord {
   id: string;
+  accountId?: string;
   timestamp: number;
   symbolId: string;
   symbolLabel: string;
@@ -112,6 +114,15 @@ interface TradeRecord {
   exitPrice?: number;
 }
 
+interface TradingAccount {
+  id: string;
+  name: string;
+  balance: number;
+  startingBalance: number;
+}
+
+const DEFAULT_ACCOUNT: TradingAccount = { id: "main", name: "Main account", balance: 100, startingBalance: 100 };
+
 const HISTORY_KEY = "lotwise.history.v1";
 const LEGACY_HISTORY_KEYS = ["pipforge.history.v1", "riskmate.history.v1"];
 const SETTINGS_KEY = "lotwise.settings.v1";
@@ -126,6 +137,9 @@ export default function Home() {
   const [symbolId, setSymbolId] = useState<string>("VOL75");
   const [balance, setBalance] = useState<number>(100);
   const [balanceInput, setBalanceInput] = useState("100");
+  const [accounts, setAccounts] = useState<TradingAccount[]>([DEFAULT_ACCOUNT]);
+  const [activeAccountId, setActiveAccountId] = useState(DEFAULT_ACCOUNT.id);
+  const [newAccountName, setNewAccountName] = useState("");
   const [riskPercent, setRiskPercent] = useState<number>(10);
   const [entry, setEntry] = useState<string>("");
   const [stopLoss, setStopLoss] = useState<string>("");
@@ -147,9 +161,88 @@ export default function Home() {
     const normalized = Number.isFinite(value) ? Math.max(0, value) : 0;
     setBalance(normalized);
     setBalanceInput(String(normalized));
+    setAccounts((current) => current.map((account) => {
+      if (account.id !== activeAccountId) return account;
+      const adjustment = normalized - account.balance;
+      return { ...account, balance: normalized, startingBalance: Math.max(0, account.startingBalance + adjustment) };
+    }));
+  }
+
+  function editBalanceDraft(value: string) {
+    setBalanceInput(value);
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    setBalance(parsed);
+  }
+
+  function selectAccount(accountId: string) {
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) return;
+    setActiveAccountId(accountId);
+    setBalance(account.balance);
+    setBalanceInput(String(account.balance));
   }
 
   useEffect(() => {
+    const account = accounts.find((item) => item.id === activeAccountId);
+    if (!account) return;
+    setBalance(account.balance);
+    setBalanceInput(String(account.balance));
+  }, [accounts, activeAccountId]);
+
+  function addAccount() {
+    const name = newAccountName.trim() || `Account ${accounts.length + 1}`;
+    const account: TradingAccount = {
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `account-${Date.now()}`,
+      name,
+      balance,
+      startingBalance: balance,
+    };
+    setAccounts((current) => [...current, account]);
+    setActiveAccountId(account.id);
+    setNewAccountName("");
+  }
+
+  function renameActiveAccount() {
+    const nextName = window.prompt("Name this account", activeAccount.name)?.trim();
+    if (!nextName) return;
+    setAccounts((current) => current.map((account) => account.id === activeAccountId
+      ? { ...account, name: nextName.slice(0, 32) }
+      : account));
+  }
+
+  function removeActiveAccount() {
+    if (accounts.length <= 1) return;
+    if (!window.confirm(`Delete “${activeAccount.name}” and its ${accountHistory.length} saved trades? This cannot be undone.`)) return;
+    const remaining = accounts.filter((account) => account.id !== activeAccountId);
+    const nextAccount = remaining[0];
+    const nextHistory = historyRef.current.filter((trade) => (trade.accountId ?? "main") !== activeAccountId);
+    historyRef.current = nextHistory;
+    setHistory(nextHistory);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+    setAccounts(remaining);
+    setActiveAccountId(nextAccount.id);
+    setBalance(nextAccount.balance);
+    setBalanceInput(String(nextAccount.balance));
+  }
+
+  function commitHistory(next: TradeRecord[]) {
+    const deltasByAccount = accountPnLDeltas(historyRef.current, next);
+    if (deltasByAccount.size) {
+      setAccounts((current) => current.map((account) => {
+        const delta = deltasByAccount.get(account.id) ?? 0;
+        return delta ? { ...account, balance: Math.max(0, account.balance + delta) } : account;
+      }));
+    }
+    historyRef.current = next;
+    setHistory(next);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  }
+
+  useEffect(() => {
+    let hasSavedAccounts = false;
+    let hasSavedJournal = false;
+    let legacyBalance = 100;
     try {
       // Migrate from legacy keys if new keys don't exist
       let saved = localStorage.getItem(SETTINGS_KEY);
@@ -164,7 +257,26 @@ export default function Home() {
           const obj = JSON.parse(saved);
           if (obj && typeof obj === "object") {
             if (CURRENCIES.includes(obj.displayCurrency)) setDisplayCurrency(obj.displayCurrency);
-            if (Number.isFinite(obj.balance) && obj.balance >= 0) updateBalance(obj.balance);
+            if (Array.isArray(obj.accounts) && obj.accounts.length > 0) {
+              const validAccounts = obj.accounts.filter((account: unknown): account is TradingAccount => {
+                if (!account || typeof account !== "object") return false;
+                const item = account as TradingAccount;
+                return typeof item.id === "string" && typeof item.name === "string" &&
+                  Number.isFinite(item.balance) && item.balance >= 0 &&
+                  Number.isFinite(item.startingBalance) && item.startingBalance >= 0;
+              });
+              if (validAccounts.length) {
+                hasSavedAccounts = true;
+                setAccounts(validAccounts);
+                const chosen = validAccounts.find((account) => account.id === obj.activeAccountId) ?? validAccounts[0];
+                setActiveAccountId(chosen.id);
+                setBalance(chosen.balance);
+                setBalanceInput(String(chosen.balance));
+              }
+            } else if (Number.isFinite(obj.balance) && obj.balance >= 0) {
+              legacyBalance = obj.balance;
+              updateBalance(obj.balance);
+            }
             if (Number.isFinite(obj.riskPercent) && obj.riskPercent >= 0 && obj.riskPercent <= 100) setRiskPercent(obj.riskPercent);
           }
         } catch {
@@ -186,12 +298,24 @@ export default function Home() {
       if (hist) {
         const parsed: unknown = JSON.parse(hist);
         if (Array.isArray(parsed)) {
-          historyRef.current = parsed as TradeRecord[];
-          setHistory(historyRef.current);
+          hasSavedJournal = true;
+          const migrated = parsed.map((trade: TradeRecord) => ({ ...trade, accountId: trade.accountId ?? "main" }));
+          if (!hasSavedAccounts) {
+            const realizedTotal = migrated.reduce((sum, trade) => sum + realizedTradePnL(trade), 0);
+            const currentBalance = Math.max(0, legacyBalance + realizedTotal);
+            setAccounts([{ ...DEFAULT_ACCOUNT, balance: currentBalance, startingBalance: legacyBalance }]);
+            setBalance(currentBalance);
+            setBalanceInput(String(currentBalance));
+          }
+          historyRef.current = migrated;
+          setHistory(migrated);
         }
       }
     } catch {
       // ignore malformed storage
+    }
+    if (!hasSavedAccounts && !hasSavedJournal) {
+      setAccounts([{ ...DEFAULT_ACCOUNT, balance: legacyBalance, startingBalance: legacyBalance }]);
     }
     setHydrated(true);
   }, []);
@@ -200,11 +324,13 @@ export default function Home() {
     if (!hydrated) return;
     localStorage.setItem(
       SETTINGS_KEY,
-      JSON.stringify({ displayCurrency, balance, riskPercent })
+      JSON.stringify({ displayCurrency, balance, riskPercent, accounts, activeAccountId })
     );
-  }, [displayCurrency, balance, riskPercent, hydrated]);
+  }, [displayCurrency, balance, riskPercent, accounts, activeAccountId, hydrated]);
 
   const symbol = useMemo(() => getSymbol(symbolId), [symbolId]);
+  const activeAccount = accounts.find((account) => account.id === activeAccountId) ?? DEFAULT_ACCOUNT;
+  const accountHistory = history.filter((trade) => (trade.accountId ?? "main") === activeAccountId);
   const symbolList = useMemo(() => symbolsByClass(assetClass), [assetClass]);
   const groupedSymbols = useMemo(
     () => groupedSymbolsByClass(assetClass),
@@ -375,6 +501,7 @@ export default function Home() {
       id: typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : `trade-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      accountId: activeAccountId,
       timestamp: Date.now(),
       symbolId: symbol.id,
       symbolLabel: symbol.label,
@@ -391,10 +518,23 @@ export default function Home() {
       note: tradeNote.trim() || undefined,
       outcome: "pending",
     };
-    const next = [record, ...historyRef.current].slice(0, 50);
-    historyRef.current = next;
-    setHistory(next);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    const allTrades = [record, ...historyRef.current];
+    const next = allTrades.slice(0, 50);
+    const prunedDeltas = new Map<string, number>();
+    for (const pruned of allTrades.slice(50)) {
+      const pnl = realizedTradePnL(pruned);
+      if (pnl) {
+        const id = pruned.accountId ?? "main";
+        prunedDeltas.set(id, (prunedDeltas.get(id) ?? 0) + pnl);
+      }
+    }
+    if (prunedDeltas.size) {
+      setAccounts((current) => current.map((account) => {
+        const amount = prunedDeltas.get(account.id) ?? 0;
+        return amount ? { ...account, startingBalance: account.startingBalance + amount } : account;
+      }));
+    }
+    commitHistory(next);
     setTradeNote("");
 
     // Sync trades to service worker for background monitoring
@@ -428,9 +568,7 @@ export default function Home() {
       }
       return merged;
     });
-    historyRef.current = next;
-    setHistory(next);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    commitHistory(next);
   }
 
   function applyBackgroundOutcomes(outcomes: Array<{
@@ -457,9 +595,7 @@ export default function Home() {
       };
     });
     if (next.some((trade, index) => trade !== currentHistory[index])) {
-      historyRef.current = next;
-      setHistory(next);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      commitHistory(next);
     }
   }
 
@@ -473,17 +609,24 @@ export default function Home() {
       return resolved ? { ...trade, ...resolved, closedAt } : trade;
     });
     if (next.some((trade, index) => trade !== history[index])) {
-      historyRef.current = next;
-      setHistory(next);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      commitHistory(next);
     }
   }, [history, livePrice.connected, livePrice.price, livePrice.source, symbol.id]);
 
   function deleteTrade(id: string) {
+    const deleted = historyRef.current.find((trade) => trade.id === id);
     const next = historyRef.current.filter((r) => r.id !== id);
     historyRef.current = next;
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    if (deleted && (deleted.accountId ?? "main") === activeAccountId) {
+      const realized = realizedTradePnL(deleted);
+      if (realized) {
+        setAccounts((current) => current.map((account) => account.id === activeAccountId
+          ? { ...account, startingBalance: account.startingBalance + realized }
+          : account));
+      }
+    }
   }
 
   // Listen for background outcomes from the service worker
@@ -523,9 +666,9 @@ export default function Home() {
   }, [hydrated]);
 
   function replayTrade(rec: TradeRecord) {
+    selectAccount(rec.accountId ?? "main");
     setAssetClass(rec.assetClass);
     setSymbolId(rec.symbolId);
-    updateBalance(rec.balance);
     setRiskPercent(rec.riskPercent);
     setEntry(String(rec.entry));
     setStopLoss(String(rec.stopLoss));
@@ -534,9 +677,13 @@ export default function Home() {
   }
 
   function clearHistory() {
-    historyRef.current = [];
-    setHistory([]);
-    localStorage.removeItem(HISTORY_KEY);
+    const next = historyRef.current.filter((trade) => (trade.accountId ?? "main") !== activeAccountId);
+    historyRef.current = next;
+    setHistory(next);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    setAccounts((current) => current.map((account) => account.id === activeAccountId
+      ? { ...account, startingBalance: account.balance }
+      : account));
   }
 
   function restoreBackup(data: LotwiseBackup) {
@@ -544,16 +691,32 @@ export default function Home() {
     const restoredCurrency = CURRENCIES.includes(data.settings.displayCurrency as CurrencyCode)
       ? data.settings.displayCurrency as CurrencyCode
       : "USD";
-    historyRef.current = restoredHistory;
-    setHistory(restoredHistory);
+    const migratedHistory = restoredHistory.map((trade) => ({ ...trade, accountId: trade.accountId ?? "main" }));
+    const legacyRealizedTotal = migratedHistory.reduce((sum, trade) => sum + realizedTradePnL(trade), 0);
+    const restoredAccounts = data.accounts?.length ? data.accounts : [{
+      ...DEFAULT_ACCOUNT,
+      balance: Math.max(0, data.settings.balance + legacyRealizedTotal),
+      startingBalance: data.settings.balance,
+    }];
+    const restoredActiveId = restoredAccounts.some((account) => account.id === data.activeAccountId)
+      ? data.activeAccountId!
+      : restoredAccounts[0].id;
+    historyRef.current = migratedHistory;
+    setHistory(migratedHistory);
+    setAccounts(restoredAccounts);
+    setActiveAccountId(restoredActiveId);
     setDisplayCurrency(restoredCurrency);
-    updateBalance(data.settings.balance);
+    const restoredActive = restoredAccounts.find((account) => account.id === restoredActiveId)!;
+    setBalance(restoredActive.balance);
+    setBalanceInput(String(restoredActive.balance));
     setRiskPercent(data.settings.riskPercent);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(restoredHistory));
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(migratedHistory));
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
       displayCurrency: restoredCurrency,
       balance: data.settings.balance,
       riskPercent: data.settings.riskPercent,
+      accounts: restoredAccounts,
+      activeAccountId: restoredActiveId,
     }));
   }
 
@@ -885,6 +1048,40 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Select value={activeAccountId} onValueChange={selectAccount}>
+                  <SelectTrigger className="h-9 flex-1 bg-black/40 border-white/10 text-xs font-mono">
+                    <SelectValue aria-label="Trading account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  aria-label="New account name"
+                  placeholder="New account name"
+                  value={newAccountName}
+                  onChange={(event) => setNewAccountName(event.currentTarget.value)}
+                  onKeyDown={(event) => { if (event.key === "Enter") addAccount(); }}
+                  className="h-9 min-w-0 flex-1 bg-black/40 border-white/10 text-xs font-mono"
+                  maxLength={32}
+                />
+                <Button type="button" variant="outline" onClick={addAccount} className="h-9 px-3 border-white/10 text-amber-300">
+                  Add
+                </Button>
+              </div>
+              <div className="flex justify-end gap-3 -mt-2">
+                <button type="button" onClick={renameActiveAccount} className="text-[9px] font-mono uppercase tracking-wider text-slate-500 hover:text-amber-300">
+                  Rename account
+                </button>
+                {accounts.length > 1 && (
+                  <button type="button" onClick={removeActiveAccount} className="text-[9px] font-mono uppercase tracking-wider text-slate-500 hover:text-rose-300">
+                    Delete account
+                  </button>
+                )}
+              </div>
               {/* Balance input with steppers + presets */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -919,8 +1116,7 @@ export default function Home() {
                         const input = e.currentTarget;
                         const entered = input.value.replace(/[^\d.]/g, "");
                         if (entered === "") {
-                          setBalanceInput("0");
-                          setBalance(0);
+                          editBalanceDraft("0");
                           window.requestAnimationFrame(() => input.select());
                           return;
                         }
@@ -929,9 +1125,7 @@ export default function Home() {
                         const raw = fraction.length > 0
                           ? `${normalizedWhole}.${fraction.join("")}`
                           : normalizedWhole;
-                        setBalanceInput(raw);
-                        const parsed = Number(raw);
-                        if (Number.isFinite(parsed) && parsed >= 0) setBalance(parsed);
+                        editBalanceDraft(raw);
                       }}
                       onBlur={() => updateBalance(Number(balanceInput))}
                       className="pl-7 bg-black/40 border-white/10 text-white font-mono tabular-nums text-lg focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20 h-10"
@@ -1448,7 +1642,7 @@ export default function Home() {
                       variant="secondary"
                       className="bg-amber-500/10 text-amber-400 text-[10px] font-mono ml-1"
                     >
-                      {history.length}
+                      {accountHistory.length}
                     </Badge>
                   </CardTitle>
                   {historyOpen ? (
@@ -1461,7 +1655,7 @@ export default function Home() {
             </CardHeader>
             <CollapsibleContent>
               <CardContent className="space-y-4">
-                {history.length === 0 ? (
+                {accountHistory.length === 0 ? (
                   <div className="space-y-3 py-4">
                     <p className="text-xs font-mono text-slate-600 text-center uppercase tracking-wider">
                       No saved trades yet
@@ -1479,18 +1673,18 @@ export default function Home() {
                     <div className="rounded-md border border-white/5 bg-black/40 p-3">
                       <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
                         <TrendingUp className="h-3 w-3 text-amber-400" />
-                        Equity Curve · starting {formatMoney(stableBalance, stableCurrency)}
+                        {activeAccount.name} equity · started at {formatMoney(activeAccount.startingBalance, stableCurrency)}
                       </p>
                       <EquityCurveChart
-                        trades={history}
-                        startingBalance={stableBalance}
+                        trades={accountHistory}
+                        startingBalance={activeAccount.startingBalance}
                         displayCurrency={stableCurrency}
                       />
                     </div>
 
                     {/* Trade list with journal + outcome controls */}
                     <div className="space-y-2 max-h-96 overflow-y-auto rm-scroll pr-1">
-                      {history.map((rec) => (
+                      {accountHistory.map((rec) => (
                         <div
                           key={rec.id}
                           className="rounded-md border border-white/5 bg-black/40 p-2.5 hover:bg-white/5 transition font-mono text-xs"
@@ -1700,6 +1894,8 @@ export default function Home() {
           version: 1,
           createdAt: new Date().toISOString(),
           journal: history,
+          accounts,
+          activeAccountId,
           alerts: [],
           alarmSettings: { enabled: true, notifyEntry: true, notifySL: true, notifyTP: true, volume: 0.6, browserNotifications: true },
           settings: { displayCurrency, balance, riskPercent },
