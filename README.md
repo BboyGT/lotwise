@@ -76,7 +76,7 @@
 - **Crypto**: Prices from Binance REST API (63 catalog symbols; availability depends on Binance market listings)
 - **Forex**: Real-time prices from TradingView Scanner API (EUR/USD, GBP/USD, 35 pairs)
 - **Indices**: Real-time prices from TradingView Scanner API (US30, NAS100, DAX, 16 indices)
-- **Synthetic**: Deriv's public WebSocket market-data API for 46 currently listed Boom, Crash, Volatility, Jump, Step, Range Break, and basket indices
+- **Synthetic**: Deriv's public WebSocket market-data API for 46 currently listed Boom, Crash, Volatility, Jump, Step, Range Break, and basket indices; only provider quotes are shown
 - **One-click price fill**: "Fill Live Entry" auto-populates the entry field
 
 ### 🕯️ Candlestick Charts
@@ -93,7 +93,7 @@
   - 📈 Take Profit: C-E-G-C octave arpeggio
   - 🔔 Custom: E-A perfect fifth
 - **Custom price alerts**: set any target price with "crosses above" or "crosses below" direction
-- **Browser notifications** with OS-level alerts, including Web Push while the installed app is closed
+- **Browser notifications** with OS-level alerts, including Web Push while the installed app is closed when push is configured
 - **Scheduled background monitoring** for active alerts and open journal trades; Netlify checks about once per minute, so short crossings can occur between checks
 - **Adjustable volume** + per-event-type toggles
 - **Preview button** to test each alarm before relying on it
@@ -134,9 +134,9 @@
 | **Crypto** | Binance REST API | ✅ Real-time (no key needed) | 63 catalog symbols |
 | **Forex** | TradingView Scanner API | ✅ Real-time (no key needed) | 35 |
 | **Indices** | TradingView Scanner API | ✅ Real-time (no key needed) | 16 |
-| **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 48 |
+| **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 46 |
 
-> **Note on Synthetic Indices**: The browser connects directly to Deriv's public, no-auth market-data WebSocket. The current endpoint returned real quotes and candles during project verification. If a visitor's network blocks Deriv, the app clearly labels the fallback as simulated and disables live-only journal closure and alerts. Browser push alerts can run while the app is closed after notifications are enabled; the Netlify monitor checks prices about once per minute, so this is not a continuous tick stream and can miss brief crossings between checks.
+> **Market data and alerts**: Market prices and synthetic candles come from their listed external providers. Lotwise does not generate substitute prices or candles; Deriv synthetic indices are still synthetic market products, streamed live by Deriv. If a provider or the visitor's network is unavailable, the app shows the last quote with an unavailable status or no quote, and live price alerts and automatic trade closure pause until a live feed returns. Browser push while the app is closed also requires notification permission and VAPID keys configured on the Netlify site. The scheduled monitor checks about once per minute, so it can miss brief crossings between checks.
 
 > **Position sizing note**: Forex pip values use a standard 100,000-unit lot and convert the quote currency into USD using live FX data where available. The displayed conversion is still an estimate if that feed is unavailable. Crypto sizing treats one catalog lot as one coin/token. Synthetic and index point values use Lotwise's baseline assumptions; CFD contract sizes and minimum trade increments vary by broker, so verify those figures against your broker before trading.
 
@@ -246,7 +246,7 @@ npm run typecheck     # TypeScript type checking
 npm test              # Calculator unit tests (Vitest)
 ```
 
-The calculator is a pure function (`src/lib/calculator.ts`) and is covered by unit tests in `tests/`. For USD-base forex pairs (USD/JPY, USD/CHF, USD/CAD and the USD exotics) the pip value is derived from your entry price, so lot sizes stay correct as the rate moves.
+The calculator is a pure function (`src/lib/calculator.ts`) and is covered by unit tests in `tests/`. Forex pip values convert quote currencies to USD with live FX quotes where available; values show as estimates when the conversion feed is unavailable.
 
 ## Continuous integration and releases
 
@@ -264,7 +264,7 @@ To publish a GitHub Release and container image, update the version in `package.
 3. Select your repo → Deploy
 4. Done! Your app is live with HTTPS (required for PWA)
 
-> **Market data**: Deriv prices are requested directly by each visitor's browser from Deriv's public WebSocket. The hosting provider does not turn simulated prices into live prices; the visitor's network must allow the Deriv connection.
+> **Market data**: Prices are requested directly by each visitor's browser from the configured provider. Synthetic quotes and candles require the visitor's network to allow Deriv's WebSocket. The app does not substitute simulated prices when a provider is unavailable.
 
 ### Netlify
 1. Push to GitHub
@@ -292,41 +292,29 @@ The current public market-data endpoint requires no app ID. Register an app ID o
 
 ```
 lotwise/
+├── .github/workflows/           # CI, CodeQL, release and dependency updates
+├── .zscripts/                   # Project maintenance scripts
+├── download/                    # Screenshots, logo and download notes
+├── examples/websocket/          # WebSocket integration examples
+├── mini-services/price-relay/  # Optional Bun Deriv-to-HTTP relay
+├── netlify/functions/           # Push config, subscription sync and monitor
+├── public/                      # PWA manifest, service worker and brand icons
+├── scripts/                     # Build, APK and icon-generation scripts
 ├── src/
-│   ├── app/
-│   │   ├── layout.tsx          # Root layout + PWA meta tags
-│   │   ├── page.tsx            # Main app (calculator UI)
-│   │   └── globals-mark.css   # Terminal theme + custom styles
-│   ├── components/
-│   │   ├── alarm-panel.tsx           # Alarm/alerts UI (3 tabs)
-│   │   ├── connection-diagnostic.tsx  # WS reachability tester
-│   │   ├── equity-curve-chart.tsx     # SVG equity curve + win rate
-│   │   ├── gt-mark.tsx                # Author badge
-│   │   ├── legal-modal.tsx            # Terms/Privacy/Disclaimer
-│   │   ├── lotwise-logo.tsx          # Brand SVG logo
-│   │   ├── searchable-symbol-picker.tsx  # Type-to-filter combobox
-│   │   ├── synthetic-candle-chart.tsx     # Candlestick chart for synthetics
-│   │   ├── tradingview-widget.tsx    # TradingView embed widgets
-│   │   └── ui/                        # shadcn/ui components
-│   ├── hooks/
-│   │   ├── use-alarm-manager.ts       # Alarm detection + sound + notifications
-│   │   ├── use-deriv-candles-v2.ts    # Deriv candle stream + simulator
-│   │   ├── use-live-price-v3.ts       # Multi-source live price hook
-│   │   ├── use-pwa.ts                # PWA install + SW registration
-│   │   └── use-toast.ts              # Toast notifications
-│   └── lib/
-│       ├── calculator.ts              # Position sizing engine
-│       ├── sound-engine.ts            # Web Audio synthesized tones
-│       └── symbols-v3.ts             # Symbol specs + contract data
-├── mini-services/price-relay/     # Optional Bun service bridging Deriv WS to REST
-├── tests/                         # Vitest unit tests
-├── public/
-│   ├── logo.svg                # Brand logo
-│   ├── manifest.json           # PWA manifest
-│   ├── sw.js                   # Service worker
-│   ├── icon-192.png            # PWA icons (6 variants)
-│   └── icon-512.png
-└── package.json
+│   ├── app/                     # Next.js app, layout and global styles
+│   ├── components/              # Calculator, charts, alerts and UI components
+│   ├── hooks/                   # Live provider feeds, alarms and PWA behavior
+│   └── lib/                     # Calculator, symbols, trade outcomes and sounds
+├── tests/                       # Vitest tests for calculator, alerts and feeds
+├── tool-results/                # Maintained diagnostic and tool output artifacts
+├── upload/                      # Uploaded project asset
+├── Caddyfile                    # Caddy deployment configuration
+├── Dockerfile                   # Container build
+├── netlify.toml                 # Netlify build, functions and scheduled monitor
+├── next.config.ts                # Next.js configuration
+├── package.json                 # Scripts and dependencies
+├── vitest.config.mts             # Test runner configuration
+└── README.md
 ```
 
 ---
