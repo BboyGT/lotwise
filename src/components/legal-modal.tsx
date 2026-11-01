@@ -191,9 +191,14 @@ export function LegalModal({ open, onClose, initialTab = "tos" }: LegalModalProp
                 </Paragraph>
 
                 <Paragraph heading="2. Data We Collect">
-                  We do not collect personal data. The following data is stored
-                  locally in your browser's localStorage and never transmitted to
-                  our servers:
+                  Lotwise does not require an account and does not collect a
+                  profile or identity. Your journal, preferences, and alerts are
+                  stored in this browser by default. If you choose to use the
+                  encrypted sync vault, Lotwise sends an encrypted snapshot to
+                  Netlify Blobs; if you enable closed-app push alerts, your
+                  notification subscription and active alert/trade price levels
+                  are sent to Netlify for background monitoring. The complete
+                  journal and its notes are not used by that monitor.
                 </Paragraph>
                 <ul className="list-disc ml-5 space-y-1 text-xs">
                   <li>Account balance and risk preferences (for convenience)</li>
@@ -203,7 +208,8 @@ export function LegalModal({ open, onClose, initialTab = "tos" }: LegalModalProp
                   <li>Position journal notes (if you choose to add them)</li>
                 </ul>
                 <Paragraph heading="3. Data We Transmit">
-                  To fetch live prices, the App makes outbound requests to:
+                  In addition to the optional features above, the App makes
+                  outbound requests to market-data providers and chart services:
                 </Paragraph>
                 <ul className="list-disc ml-5 space-y-1 text-xs">
                   <li>
@@ -219,15 +225,20 @@ export function LegalModal({ open, onClose, initialTab = "tos" }: LegalModalProp
                     TradingView's CDN (subject to TradingView's privacy policy)
                   </li>
                 </ul>
-                <Paragraph heading="4. Cookies">
-                  The App does not use cookies. All preferences are stored in
-                  localStorage, which remains on your device.
+                <Paragraph heading="4. Cookies and Local Storage">
+                  Lotwise stores app preferences, alerts, and journal data in
+                  browser localStorage. It uses browser storage for the PWA and
+                  push notification device token. Market-data or chart providers
+                  may apply their own cookies or privacy practices to their
+                  services.
                 </Paragraph>
                 <Paragraph heading="5. Browser Notifications">
                   If you enable browser notifications for alarms, the App uses the
                   standard browser Notification API. Notifications are created
-                  locally by your browser and do not transmit data to our
-                  servers. You can revoke notification permission at any time via
+                  locally by your browser. When closed-app push is enabled, the
+                  subscription and active monitoring levels are sent to our
+                  Netlify function so it can request push notifications. You can
+                  disable this in the Alerts settings and revoke permission at any time via
                   your browser's site settings.
                 </Paragraph>
                 <Paragraph heading="6. Third-Party Analytics">
@@ -235,7 +246,9 @@ export function LegalModal({ open, onClose, initialTab = "tos" }: LegalModalProp
                   advertising SDKs. We do not track your usage behavior.
                 </Paragraph>
                 <Paragraph heading="7. Data Deletion">
-                  To delete all locally stored data, you can:
+                  Use the History panel to clear journal entries, the Data tab
+                  to delete an encrypted vault snapshot, and your browser's site
+                  settings to remove local app data. You can also:
                 </Paragraph>
                 <ul className="list-disc ml-5 space-y-1 text-xs">
                   <li>Use the "Clear history" button in the History panel</li>

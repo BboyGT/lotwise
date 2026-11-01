@@ -63,14 +63,23 @@ async function handlePushSync(request: Request) {
 
   const old = await store.get(key, { type: "json" }) as PushDevice | null;
   const pendingEvents = Array.isArray(old?.pendingEvents) ? old.pendingEvents.slice(-MAX_LEVELS * 2) : [];
-  const triggeredAlerts = new Set(pendingEvents.map((event) => event.alertId).filter(Boolean));
-  const triggeredTrades = new Set(pendingEvents.map((event) => event.tradeId).filter(Boolean));
+  const pendingDeliveries = Array.isArray(old?.pendingDeliveries) ? old.pendingDeliveries.slice(-MAX_LEVELS * 2) : [];
+  const triggeredEvents = [...pendingEvents, ...pendingDeliveries.map((item) => item.event)];
+  const triggeredAlerts = new Set(triggeredEvents.map((event) => event.alertId).filter(Boolean));
+  const triggeredTrades = new Set(triggeredEvents.map((event) => event.tradeId).filter(Boolean));
+  const activeAlerts = (alerts as PushDevice["alerts"]).filter((alert) => !triggeredAlerts.has(alert.id));
+  const activeTrades = (trades as PushDevice["trades"]).filter((trade) => !triggeredTrades.has(trade.id));
+  if (activeAlerts.length === 0 && activeTrades.length === 0 && pendingDeliveries.length === 0) {
+    await store.delete(key);
+    return Response.json({ ok: true, events: pendingEvents });
+  }
   const next: PushDevice = {
     subscription,
-    alerts: (alerts as PushDevice["alerts"]).filter((alert) => !triggeredAlerts.has(alert.id)),
-    trades: (trades as PushDevice["trades"]).filter((trade) => !triggeredTrades.has(trade.id)),
+    alerts: activeAlerts,
+    trades: activeTrades,
     previousPrices: old?.previousPrices ?? {},
     pendingEvents: [],
+    pendingDeliveries,
     updatedAt: Date.now(),
   };
 

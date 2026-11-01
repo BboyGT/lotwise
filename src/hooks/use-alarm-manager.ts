@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { playAlarmSound, type AlarmSoundType } from "@/lib/sound-engine";
+import { toast } from "@/hooks/use-toast";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -98,10 +99,22 @@ export function useAlarmManager(
   // Refs for use inside callbacks without re-subscribing
   const settingsRef = useRef<AlarmSettings>(DEFAULT_SETTINGS);
   const firedTradeLevelsRef = useRef<Set<string>>(new Set());
+  const activeTradeLevelsKeyRef = useRef("");
   const previousPriceRef = useRef(new Map<string, number>());
+  const lastWatchedSymbolRef = useRef(currentSymbolId);
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  // A symbol may have changed while the user was viewing another market.
+  // Start with a fresh baseline on return so an old quote cannot produce a
+  // false crossing notification when the current live feed reconnects.
+  useEffect(() => {
+    if (lastWatchedSymbolRef.current !== currentSymbolId) {
+      previousPriceRef.current.clear();
+      lastWatchedSymbolRef.current = currentSymbolId;
+    }
+  }, [currentSymbolId]);
 
   // ----- load persisted state -----
   useEffect(() => {
@@ -161,6 +174,17 @@ export function useAlarmManager(
       };
       setEvents((prev) => [event, ...prev].slice(0, 50));
 
+      const icon = type === "takeProfit" ? "📈" : type === "stopLoss" ? "🛑" : type === "entry" ? "🎯" : "🔔";
+      const isPageVisible = typeof document !== "undefined" && document.visibilityState === "visible";
+      if (isPageVisible) {
+        toast({
+          title: `${icon} ${currentSymbolLabel} alert`,
+          description: message,
+          duration: 8000,
+          variant: type === "stopLoss" || type === "error" ? "destructive" : "default",
+        });
+      }
+
       // Play sound if enabled
       const s = settingsRef.current;
       if (s.enabled) {
@@ -176,8 +200,12 @@ export function useAlarmManager(
       }
 
       // Service worker notifications also work when the installed app is in the background.
-      if (s.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted") {
-        const icon = type === "takeProfit" ? "📈" : type === "stopLoss" ? "🛑" : type === "entry" ? "🎯" : "🔔";
+      if (
+        !isPageVisible &&
+        s.browserNotifications &&
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
         const options = { body: message, tag: event.id, icon: "/icon-192.png" };
         if ("serviceWorker" in navigator) {
           void navigator.serviceWorker.getRegistration()
@@ -190,6 +218,23 @@ export function useAlarmManager(
     },
     [currentSymbolLabel]
   );
+
+  const tradeLevelsKey = tradeLevels
+    ? `${tradeLevels.symbolId}:${tradeLevels.entry ?? ""}:${tradeLevels.stopLoss ?? ""}:${tradeLevels.takeProfit ?? ""}`
+    : "";
+
+  // Treat a changed calculator setup as a new set of alert levels. Without
+  // this reset, reusing a price level later in the same session stays muted.
+  useEffect(() => {
+    if (activeTradeLevelsKeyRef.current === tradeLevelsKey) return;
+    activeTradeLevelsKeyRef.current = tradeLevelsKey;
+    firedTradeLevelsRef.current.clear();
+    if (currentPriceIsLive && currentPrice != null && currentPrice > 0) {
+      previousPriceRef.current.set(currentSymbolId, currentPrice);
+    } else {
+      previousPriceRef.current.delete(currentSymbolId);
+    }
+  }, [tradeLevelsKey, currentSymbolId, currentPrice, currentPriceIsLive]);
 
   // ----- watch current price for trade level hits (entry/SL/TP) -----
   useEffect(() => {
@@ -348,6 +393,7 @@ export function useAlarmManager(
 
   return {
     alerts,
+    setAlerts,
     settings,
     setSettings,
     events,

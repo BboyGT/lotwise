@@ -36,8 +36,8 @@ interface SyntheticCandleChartProps {
  * ticks_history (style=candles) endpoint to render proper OHLC
  * candlesticks with live updates.
  *
- * Falls back to simulated candles if Deriv WS is unreachable
- * (e.g. sandbox networks that block wss://).
+ * Shows live Deriv candles only. If Deriv is unreachable, the chart stays
+ * empty and displays the connection error rather than inventing candles.
  */
 export function SyntheticCandleChart({
   derivSymbol,
@@ -195,9 +195,7 @@ export function SyntheticCandleChart({
             className={`rm-pulse-dot ${
               source === "deriv-ws"
                 ? "bg-emerald-400"
-                : source === "simulator"
-                ? "bg-amber-400"
-                : "bg-slate-500"
+              : "bg-slate-500"
             }`}
             style={{ width: 6, height: 6 }}
           />
@@ -217,8 +215,6 @@ export function SyntheticCandleChart({
           <span className="text-[9px] font-mono uppercase tracking-wider text-slate-500">
             {source === "deriv-ws"
               ? "Live · Deriv WS"
-              : source === "simulator"
-              ? "Simulated"
               : isLoading
               ? "Connecting…"
               : "Offline"}
