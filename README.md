@@ -6,6 +6,8 @@
 
 **Calculate exact lot size, risk, and reward for Forex, Synthetic Indices, Crypto & Real Indices with live prices, alarms, and PWA install.**
 
+**[Open the live Lotwise app](https://lotwises.netlify.app)** to try the project.
+
 [![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
@@ -66,7 +68,8 @@
 ### 📊 Position Calculator
 - **160 trading symbols** across 4 asset classes: 35 forex, 46 synthetic indices currently listed by Deriv's public market feed, 16 real indices, and 63 crypto symbols
 - **Exact lot size** auto-calculated from your risk percentage and SL distance
-- **Min-lot validation**: warns when calculated lot is below broker minimum, shows adjusted scenario
+- **Forex pip values** converted to USD from the live quote-currency rate for cross pairs; without that conversion the calculator labels the value as estimated
+- **Minimum-size validation**: warns when calculated lot is below the catalog baseline and shows the adjusted scenario; confirm broker minimums and volume steps
 - **Risk-to-reward visualizer**: color-coded bar showing SL zone (red), entry marker (gold), TP zone (green)
 - **0.5%–100% risk slider** with quick presets (1%, 2%, 5%, 10%, 25%, 50%, 100%)
 - **Multi-currency display**: switch between USD, EUR, GBP, NGN, JPY
@@ -75,7 +78,7 @@
 - **Crypto**: Prices from Binance REST API (63 catalog symbols; availability depends on Binance market listings)
 - **Forex**: Real-time prices from TradingView Scanner API (EUR/USD, GBP/USD, 35 pairs)
 - **Indices**: Real-time prices from TradingView Scanner API (US30, NAS100, DAX, 16 indices)
-- **Synthetic**: Deriv's public WebSocket market-data API for 46 currently listed Boom, Crash, Volatility, Jump, Step, Range Break, and basket indices
+- **Synthetic**: Deriv's public WebSocket market-data API for 46 currently listed Boom, Crash, Volatility, Jump, Step, Range Break, and basket indices; only provider quotes are shown
 - **One-click price fill**: "Fill Live Entry" auto-populates the entry field
 
 ### 🕯️ Candlestick Charts
@@ -92,7 +95,7 @@
   - 📈 Take Profit: C-E-G-C octave arpeggio
   - 🔔 Custom: E-A perfect fifth
 - **Custom price alerts**: set any target price with "crosses above" or "crosses below" direction
-- **Browser notifications** with OS-level alerts, including Web Push while the installed app is closed
+- **Readable in-app alert cards** while Lotwise is open, plus OS notifications and Web Push while it is in the background when push is configured
 - **Scheduled background monitoring** for active alerts and open journal trades; Netlify checks about once per minute, so short crossings can occur between checks
 - **Adjustable volume** + per-event-type toggles
 - **Preview button** to test each alarm before relying on it
@@ -109,7 +112,7 @@
 - **Installable** on desktop (Chrome/Edge) and mobile (Chrome/Safari)
 - **Standalone window**: no browser chrome
 - **Offline shell**: service worker caches the UI for instant load
-- **Background push alerts** through a scheduled Netlify Function; enable browser notifications in the alarm panel and configure VAPID keys on self-hosted Netlify deployments
+- **Background push alerts** are implemented with a scheduled Netlify Function; the deployed site needs VAPID keys before closed-app push can be enabled
 - **App shortcuts**: quick-access to Synthetic, Forex, or Crypto tabs
 - **Custom icons**: 192px, 512px, maskable, Apple touch icon, favicon
 
@@ -121,21 +124,33 @@
 
 ### ⚖️ Legal & Compliance
 - **Terms of Service** (10 sections covering service nature, no financial advice, risk disclosure)
-- **Privacy Policy** (9 sections: privacy-first, no tracking, localStorage only)
+- **Privacy Policy** (9 sections: local-first storage, optional encrypted vault and background alerts, no analytics)
 - **Risk Disclaimer** (10 sections + problem gambling help links)
 
 ---
 
 ## 🔴 Live Price Feeds
 
-| Asset Class | Source | Status | Pairs |
-|---|---|---|---|
-| **Crypto** | Binance REST API | ✅ Real-time (no key needed) | 63 catalog symbols |
-| **Forex** | TradingView Scanner API | ✅ Real-time (no key needed) | 35 |
-| **Indices** | TradingView Scanner API | ✅ Real-time (no key needed) | 16 |
-| **Synthetic** | Deriv WebSocket API | ⚠️ Requires non-blocked IP | 48 |
+| Asset Class | Source | Status | Catalog symbols |
+|---|---|---|---:|
+| **Crypto** | Binance public REST API | ✅ Live quotes, no API key | 63 |
+| **Forex** | TradingView Scanner API | ✅ Live quotes, no API key; market-hours dependent | 35 |
+| **Indices** | TradingView Scanner API | ✅ Live quotes, no API key; market-hours dependent | 16 |
+| **Synthetic** | Deriv public WebSocket API | ✅ Live ticks and candles, no API key | 46 |
 
-> **Note on Synthetic Indices**: The browser connects directly to Deriv's public, no-auth market-data WebSocket. The current endpoint returned real quotes and candles during project verification. If a visitor's network blocks Deriv, the app clearly labels the fallback as simulated and disables live-only journal closure and alerts. Browser push alerts can run while the app is closed after notifications are enabled; the Netlify monitor checks prices about once per minute, so this is not a continuous tick stream and can miss brief crossings between checks.
+> **Market data and alerts**: All four asset classes use live quotes from their listed external providers. The feeds are integrated and do not need provider API keys. Quote freshness still depends on the provider, market hours where applicable, and the visitor's internet connection. Lotwise does not generate substitute prices or candles. Deriv synthetic indices are synthetic market products streamed live by Deriv. If a feed disconnects, its status changes to unavailable; alerts and automatic trade closure wait for live data to resume. Netlify's background monitor checks about once per minute and can miss brief crossings.
+
+> **Notifications**: In-app alerts and browser notifications work while the site is open when permission is granted. Closed-app Web Push requires browser permission and VAPID keys; the production keys are not currently configured (`/api/push/config` returns HTTP 503). Once configured, the Netlify monitor checks about once per minute.
+
+> **Position sizing note**: Forex pip values use a standard 100,000-unit lot and convert the quote currency into USD using live FX data where available. The displayed conversion is still an estimate if that feed is unavailable. Crypto sizing treats one catalog lot as one coin/token. Synthetic and index point values use Lotwise's baseline assumptions; CFD contract sizes and minimum trade increments vary by broker, so verify those figures against your broker before trading.
+
+### Current limitations
+
+- Forex pip-value conversion quotes are configured for GBP, AUD, NZD, JPY, CHF, and CAD. Calculations that lack a live conversion use the catalog estimate and are marked as estimated.
+- Journal entries, alerts, and app settings are stored on the device by default. The Alerts panel's **Data** tab can export/import a password-encrypted backup file, or optionally save/restore an encrypted snapshot through a Netlify sync vault without an account. Vault updates are manual and replace the previous snapshot. The recovery key is required; if it is lost, the vault cannot be decrypted. Keep a separate copy of the key and continue to keep offline backup files.
+- The repository does not contain a built APK. Lotwise can be installed as a PWA; `scripts/build-apk.sh` documents the manual PWABuilder or Bubblewrap packaging steps.
+- Offline caching covers the app shell only. Live market quotes, chart updates, and price-triggered alerts need an internet connection.
+- Position sizing uses Lotwise's baseline contract and minimum-size assumptions, not a broker-specific instrument specification. Confirm contract size, lot step, and pip/point value with the broker before trading.
 
 ---
 
@@ -192,7 +207,7 @@
 | **Sound** | Web Audio API (synthesized tones, no audio files) |
 | **PWA** | Service Worker + Web App Manifest + custom icons |
 | **Notifications** | Browser Notification API + Service Worker push |
-| **Storage** | localStorage (no backend, no database, no tracking) |
+| **Storage** | Browser localStorage by default; optional AES-GCM encrypted exports and Netlify Blobs sync vault |
 | **Icons** | Lucide React |
 
 ---
@@ -243,7 +258,7 @@ npm run typecheck     # TypeScript type checking
 npm test              # Calculator unit tests (Vitest)
 ```
 
-The calculator is a pure function (`src/lib/calculator.ts`) and is covered by unit tests in `tests/`. For USD-base forex pairs (USD/JPY, USD/CHF, USD/CAD and the USD exotics) the pip value is derived from your entry price, so lot sizes stay correct as the rate moves.
+The calculator is a pure function (`src/lib/calculator.ts`) and is covered by unit tests in `tests/`. Forex pip values convert quote currencies to USD with live FX quotes where available; values show as estimates when the conversion feed is unavailable.
 
 ## Continuous integration and releases
 
@@ -261,7 +276,7 @@ To publish a GitHub Release and container image, update the version in `package.
 3. Select your repo → Deploy
 4. Done! Your app is live with HTTPS (required for PWA)
 
-> **Market data**: Deriv prices are requested directly by each visitor's browser from Deriv's public WebSocket. The hosting provider does not turn simulated prices into live prices; the visitor's network must allow the Deriv connection.
+> **Market data**: Prices are requested directly by each visitor's browser from the configured provider. Synthetic quotes and candles use Deriv's public WebSocket feed. If a provider or local connection is unavailable, the app reports the feed as unavailable and does not substitute simulated data.
 
 ### Netlify
 1. Push to GitHub
@@ -269,6 +284,8 @@ To publish a GitHub Release and container image, update the version in `package.
 3. Build command: `npm run build` (already set in `netlify.toml`)
 4. Use the detected Next.js runtime with build command `npm run build` and publish directory `.next`
 5. Deploy
+
+The optional sync vault uses Netlify Blobs through the `/api/sync-vault` function. It requires no account or extra environment variables. The browser encrypts each snapshot with AES-GCM before upload; the recovery key's separate storage-access portion is used only to locate the ciphertext. Vault saves overwrite the previous snapshot, and restoring replaces the current device's journal, alerts, and preferences.
 
 ### Local Development
 ```bash
@@ -289,41 +306,29 @@ The current public market-data endpoint requires no app ID. Register an app ID o
 
 ```
 lotwise/
+├── .github/workflows/           # CI, CodeQL, release and dependency updates
+├── .zscripts/                   # Project maintenance scripts
+├── download/                    # Screenshots, logo and download notes
+├── examples/websocket/          # WebSocket integration examples
+├── mini-services/price-relay/  # Optional Bun Deriv-to-HTTP relay
+├── netlify/functions/           # Push config, subscription sync and monitor
+├── public/                      # PWA manifest, service worker and brand icons
+├── scripts/                     # Build, APK and icon-generation scripts
 ├── src/
-│   ├── app/
-│   │   ├── layout.tsx          # Root layout + PWA meta tags
-│   │   ├── page.tsx            # Main app (calculator UI)
-│   │   └── globals-mark.css   # Terminal theme + custom styles
-│   ├── components/
-│   │   ├── alarm-panel.tsx           # Alarm/alerts UI (3 tabs)
-│   │   ├── connection-diagnostic.tsx  # WS reachability tester
-│   │   ├── equity-curve-chart.tsx     # SVG equity curve + win rate
-│   │   ├── gt-mark.tsx                # Author badge
-│   │   ├── legal-modal.tsx            # Terms/Privacy/Disclaimer
-│   │   ├── lotwise-logo.tsx          # Brand SVG logo
-│   │   ├── searchable-symbol-picker.tsx  # Type-to-filter combobox
-│   │   ├── synthetic-candle-chart.tsx     # Candlestick chart for synthetics
-│   │   ├── tradingview-widget.tsx    # TradingView embed widgets
-│   │   └── ui/                        # shadcn/ui components
-│   ├── hooks/
-│   │   ├── use-alarm-manager.ts       # Alarm detection + sound + notifications
-│   │   ├── use-deriv-candles-v2.ts    # Deriv candle stream + simulator
-│   │   ├── use-live-price-v3.ts       # Multi-source live price hook
-│   │   ├── use-pwa.ts                # PWA install + SW registration
-│   │   └── use-toast.ts              # Toast notifications
-│   └── lib/
-│       ├── calculator.ts              # Position sizing engine
-│       ├── sound-engine.ts            # Web Audio synthesized tones
-│       └── symbols-v3.ts             # Symbol specs + contract data
-├── mini-services/price-relay/     # Optional Bun service bridging Deriv WS to REST
-├── tests/                         # Vitest unit tests
-├── public/
-│   ├── logo.svg                # Brand logo
-│   ├── manifest.json           # PWA manifest
-│   ├── sw.js                   # Service worker
-│   ├── icon-192.png            # PWA icons (6 variants)
-│   └── icon-512.png
-└── package.json
+│   ├── app/                     # Next.js app, layout and global styles
+│   ├── components/              # Calculator, charts, alerts and UI components
+│   ├── hooks/                   # Live provider feeds, alarms and PWA behavior
+│   └── lib/                     # Calculator, symbols, trade outcomes and sounds
+├── tests/                       # Vitest tests for calculator, alerts and feeds
+├── tool-results/                # Maintained diagnostic and tool output artifacts
+├── upload/                      # Uploaded project asset
+├── Caddyfile                    # Caddy deployment configuration
+├── Dockerfile                   # Container build
+├── netlify.toml                 # Netlify build, functions and scheduled monitor
+├── next.config.ts                # Next.js configuration
+├── package.json                 # Scripts and dependencies
+├── vitest.config.mts             # Test runner configuration
+└── README.md
 ```
 
 ---
@@ -358,12 +363,12 @@ lotwise/
 ### Crypto (63 symbols)
 - **Major** (8): BTC, ETH, XRP, SOL, ADA, DOT, LTC, BCH
 - **Layer 1 & 2** (10): AVAX, ATOM, NEAR, ARB, OP, APT, MATIC, FIL, INJ, SUI
-- **DeFi & Oracles** (15): LINK, UNI, AAVE, MKR, RUNE, TIA, SEI, BNB, DYDX, CRV, SUSHI, YFI, COMP, SNX, 1INCH
+- **DeFi & Oracles** (15): LINK, UNI, AAVE, SKY (formerly MKR), RUNE, TIA, SEI, BNB, DYDX, CRV, SUSHI, YFI, COMP, SNX, 1INCH
 - **Layer 1 Additional** (8): TRX, ETC, XLM, VET, ALGO, ICP, EGLD, STX
 - **Gaming & NFT** (7): SAND, MANA, AXS, GALA, THETA, CHZ, ENJ
 - **Meme Coins** (5): DOGE, SHIB, PEPE, BONK, WIF
-- **AI & Infrastructure** (5): RNDR, GRT, LDO, ORDI, WLD
-- **Additional** (5): FTM, ZIL, FLOW, IOTA, JUP
+- **AI & Infrastructure** (5): RENDER (formerly RNDR), GRT, LDO, ORDI, WLD
+- **Additional** (5): Sonic (formerly FTM), ZIL, FLOW, IOTA, JUP
 
 ---
 

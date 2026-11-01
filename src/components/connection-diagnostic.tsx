@@ -163,28 +163,28 @@ export function ConnectionDiagnostic({ className }: ConnectionDiagnosticProps) {
                   <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
                   <span>
                     <strong>Deriv WS is blocked on your network.</strong> Synthetic prices
-                    will use simulation. This is typically caused by a network firewall,
+                    and candles will be unavailable until the live feed reconnects. This is typically caused by a network firewall,
                     browser extension, or provider restriction.
                     <br /><br />
-                    <strong>To get real synthetic prices:</strong> Open this app on a
-                    different network (residential WiFi, mobile data) or deploy to a
-                    server with a non-blocked IP. Crypto prices (Binance) work normally.
+                    <strong>To restore live synthetic prices:</strong> Open this app on a
+                    different network (residential WiFi or mobile data), or allow Deriv
+                    WebSocket connections through your firewall or browser extension.
+                    Crypto prices (Binance) work normally.
                   </span>
                 </div>
               ) : results.some((r) => r.status === "open") ? (
                 <div className="flex items-start gap-2 text-[10px] font-mono text-emerald-300/90 leading-relaxed">
                   <CheckCircle2 className="h-3 w-3 mt-0.5 shrink-0" />
                   <span>
-                    Deriv WS is reachable. Synthetic prices should stream live.
-                    If you still see "Simulated", try switching to another synthetic symbol.
+                    Deriv WS is reachable. Synthetic prices and candles should stream live.
                   </span>
                 </div>
               ) : (
                 <div className="flex items-start gap-2 text-[10px] font-mono text-rose-300/90 leading-relaxed">
                   <XCircle className="h-3 w-3 mt-0.5 shrink-0" />
                   <span>
-                    Both Deriv and Binance WS are blocked. Check your network connection
-                    or firewall settings.
+                    Deriv WebSocket and Binance REST checks both failed. Check your network
+                    connection or firewall settings.
                   </span>
                 </div>
               )}
