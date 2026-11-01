@@ -6,6 +6,8 @@
 
 **Calculate exact lot size, risk, and reward for Forex, Synthetic Indices, Crypto & Real Indices with live prices, alarms, and PWA install.**
 
+**[Open the live Lotwise app](https://lotwises.netlify.app)** to try the project.
+
 [![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
