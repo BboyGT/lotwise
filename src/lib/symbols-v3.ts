@@ -1,5 +1,5 @@
-// Symbol catalog with lot specs and pip/point value rules
-// All values standard for retail brokers (Deriv, Exness, ICMarkets, Binance etc.)
+// Symbol catalog with baseline lot specs and pip/point value assumptions.
+// Broker contract sizes and volume increments vary; verify against the broker.
 
 export type AssetClass = "forex" | "synthetic" | "indices" | "crypto";
 
@@ -12,11 +12,11 @@ export interface SymbolSpec {
   tvScannerSymbol?: string; // TradingView scanner symbol for live price (forex/indices only — e.g. "FX:EURUSD")
   assetClass: AssetClass;
   category: string;          // sub-category within asset class, for grouped dropdown
-  minLot: number;            // broker minimum lot size
-  lotStep: number;           // broker lot step
+  minLot: number;            // Lotwise baseline minimum size, not universal broker metadata
+  lotStep: number;           // Lotwise baseline increment, not universal broker metadata
   contractSize: number;      // units per 1 lot
   pipSize: number;           // 0.0001 for forex, 0.01 for JPY pairs, 1.0 for indices/crypto/synthetic
-  pipValuePerLot: number;    // $ per pip per 1 lot (in account currency = USD)
+  pipValuePerLot: number;    // fallback USD per pip per baseline lot; shown as estimated when not live-converted
   decimals: number;          // price display decimals
   note?: string;             // special notes
 }
@@ -341,7 +341,7 @@ export const SYMBOLS: SymbolSpec[] = [
   index("UK100", "UK100 (FTSE)", "TVC:UKX", "TVC:UKX", "Europe Indices", 1, 0.1, 2, 0.1),
   index("FRA40", "FRA40 (CAC 40)", "TVC:CAC", "EURONEXT:PX1", "Europe Indices", 1, 0.1, 2, 0.1),
   index("ESP35", "ESP35 (IBEX 35)", "TVC:IBEX35", "TVC:IBEX35", "Europe Indices", 1, 1, 1, 0.1),
-  index("ITA40", "ITA40 (FTSE MIB)", "TVC:FTSEMIB", "MIL:FTSEMIB", "Europe Indices", 1, 1, 1, 0.1),
+  index("ITA40", "ITA40 (FTSE MIB)", "FTSE:FTSEMIB", "FTSE:FTSEMIB", "Europe Indices", 1, 1, 1, 0.1),
   index("NETH25", "NETH25 (AEX)", "TVC:AEX", "TVC:AEX", "Europe Indices", 1, 1, 1, 0.1),
   index("SWISS20", "SWISS20 (SMI)", "TVC:SMI", "SIX:SMI", "Europe Indices", 1, 1, 1, 0.1),
 
@@ -350,8 +350,8 @@ export const SYMBOLS: SymbolSpec[] = [
   // ============================================================
   index("JPN225", "JPN225 (Nikkei)", "TVC:NI225", "TVC:NI225", "Asia Indices", 1, 1, 1, 0.1),
   index("HKG50", "HKG50 (Hang Seng)", "TVC:HSI", "TVC:HSI", "Asia Indices", 1, 1, 1, 0.1),
-  index("AUS200", "AUS200 (ASX)", "TVC:ASX200", "ASX:AXJO", "Asia Indices", 1, 1, 1, 0.1),
-  index("KOSPI200", "KOSPI 200", "TVC:KS200", "TVC:KS200", "Asia Indices", 1, 1, 1, 0.1,
+  index("AUS200", "AUS200 (ASX)", "ASX:XJO", "SP:XJO", "Asia Indices", 1, 1, 1, 0.1),
+  index("KOSPI200", "KOSPI 200", "KRX:KOSPI200", "KRX:KOSPI200", "Asia Indices", 1, 1, 1, 0.1,
     "South Korea index."),
 
   // ============================================================
@@ -413,8 +413,8 @@ export const SYMBOLS: SymbolSpec[] = [
     "Uniswap. 1 lot = 1 UNI."),
   crypto("AAVEUSD", "AAVE/USD", "BINANCE:AAVEUSDT", "AAVEUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
     "Aave. 1 lot = 1 AAVE."),
-  crypto("MKRUSD", "MKR/USD", "BINANCE:MKRUSDT", "MKRUSDT", "DeFi & Oracles", 0.01, 0.01, 2,
-    "Maker. 1 lot = 1 MKR."),
+  crypto("SKYUSD", "SKY/USD (formerly MKR)", "BINANCE:SKYUSDT", "SKYUSDT", "DeFi & Oracles", 0.00001, 0.00001, 5,
+    "Sky governance token. Binance redenominated MKR at 1 MKR = 24,000 SKY; pip value assumes 1 SKY per lot."),
   crypto("RUNEUSD", "RUNE/USD", "BINANCE:RUNEUSDT", "RUNEUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
     "THORChain. 1 lot = 1 RUNE."),
   crypto("TIAUSD", "TIA/USD", "BINANCE:TIAUSDT", "TIAUSDT", "DeFi & Oracles", 0.001, 0.001, 4,
@@ -493,8 +493,8 @@ export const SYMBOLS: SymbolSpec[] = [
   // ============================================================
   // CRYPTO — AI & INFRASTRUCTURE (5)
   // ============================================================
-  crypto("RNDRUSD", "RNDR/USD", "BINANCE:RNDRUSDT", "RNDRUSDT", "AI & Infrastructure", 0.01, 0.01, 2,
-    "Render. 1 lot = 1 RNDR."),
+  crypto("RNDRUSD", "RENDER/USD (formerly RNDR)", "BINANCE:RENDERUSDT", "RENDERUSDT", "AI & Infrastructure", 0.001, 0.001, 3,
+    "Render token ticker migrated from RNDR to RENDER. 1 lot = 1 RENDER."),
   crypto("GRTUSD", "GRT/USD", "BINANCE:GRTUSDT", "GRTUSDT", "AI & Infrastructure", 0.001, 0.001, 4,
     "The Graph. 1 lot = 1 GRT."),
   crypto("LDOUSD", "LDO/USD", "BINANCE:LDOUSDT", "LDOUSDT", "AI & Infrastructure", 0.001, 0.001, 4,
@@ -507,8 +507,8 @@ export const SYMBOLS: SymbolSpec[] = [
   // ============================================================
   // CRYPTO — ADDITIONAL (5)
   // ============================================================
-  crypto("FTMUSD", "FTM/USD", "BINANCE:FTMUSDT", "FTMUSDT", "Additional", 0.001, 0.001, 4,
-    "Fantom. 1 lot = 1 FTM."),
+  crypto("FTMUSD", "Sonic/USD (formerly FTM)", "BINANCE:SUSDT", "SUSDT", "Additional", 0.00001, 0.00001, 5,
+    "Binance migrated Fantom to Sonic at 1 FTM = 1 S. 1 lot = 1 S."),
   crypto("ZILUSD", "ZIL/USD", "BINANCE:ZILUSDT", "ZILUSDT", "Additional", 0.0001, 0.0001, 4,
     "Zilliqa. 1 lot = 1 ZIL."),
   crypto("FLOWUSD", "FLOW/USD", "BINANCE:FLOWUSDT", "FLOWUSDT", "Additional", 0.001, 0.001, 4,
@@ -523,7 +523,7 @@ export function symbolsByClass(assetClass: AssetClass): SymbolSpec[] {
   return SYMBOLS.filter((s) => s.assetClass === assetClass);
 }
 
-const LEGACY_SYNTHETIC_SYMBOLS: Record<string, SymbolSpec> = Object.fromEntries(
+const LEGACY_SYMBOLS: Record<string, SymbolSpec> = Object.fromEntries(
   [
     ...Array.from({ length: 9 }, (_, index) => {
       const step = (index + 1) / 10;
@@ -534,11 +534,12 @@ const LEGACY_SYNTHETIC_SYMBOLS: Record<string, SymbolSpec> = Object.fromEntries(
     ["SMART10R", "Smart 10R Index"],
     ["SMART20R", "Smart 20R Index"],
     ["SMART40R", "Smart 40R Index"],
+    ["MKRUSD", "MKR/USD (retired; now SKY)"],
   ].map(([id, label]) => [id, {
     id,
     label,
     tvSymbol: "",
-    assetClass: "synthetic",
+    assetClass: id === "MKRUSD" ? "crypto" : "synthetic",
     category: "Unavailable legacy symbol",
     minLot: 0.01,
     lotStep: 0.01,
@@ -546,12 +547,14 @@ const LEGACY_SYNTHETIC_SYMBOLS: Record<string, SymbolSpec> = Object.fromEntries(
     pipSize: 1,
     pipValuePerLot: 1,
     decimals: 2,
-    note: "This symbol is no longer available from Deriv's public market data feed.",
+    note: id === "MKRUSD"
+      ? "MKR spot trading was replaced by SKY. Historical MKR levels cannot safely use SKY prices because the token redenomination was 1:24,000."
+      : "This symbol is no longer available from Deriv's public market data feed.",
   } satisfies SymbolSpec]),
 );
 
 export function getSymbol(id: string): SymbolSpec {
-  return SYMBOLS.find((s) => s.id === id) ?? LEGACY_SYNTHETIC_SYMBOLS[id] ?? SYMBOLS[0];
+  return SYMBOLS.find((s) => s.id === id) ?? LEGACY_SYMBOLS[id] ?? SYMBOLS[0];
 }
 
 // Group symbols in an asset class by their `category` field.

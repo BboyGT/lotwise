@@ -112,9 +112,28 @@ describe("USD-base pip value", () => {
     expect(effectivePipValue(sym("USDCAD"), 1.35)).toBeCloseTo(10 / 1.35, 6);
   });
 
-  it("non USD-base pairs keep the static value", () => {
+  it("USD-quoted forex pairs use the exact standard-lot pip value", () => {
     const eur = sym("EURUSD");
-    expect(effectivePipValue(eur, 1.1)).toBe(eur.pipValuePerLot);
+    expect(effectivePipValue(eur, 1.1)).toBe(10);
+  });
+
+  it("cross pairs use the current quote-currency conversion when supplied", () => {
+    const eurgbp = sym("EURGBP");
+    expect(effectivePipValue(eurgbp, 0.85, 1.27)).toBeCloseTo(12.7, 6);
+    const result = calculateTrade({
+      symbol: eurgbp, balance: 1000, riskPercent: 1,
+      entry: 0.85, stopLoss: 0.849, takeProfit: 0.852,
+      quoteCurrencyToUsdRate: 1.27,
+    });
+    expect(result.pipValueEstimated).toBe(false);
+    expect(result.pipValuePerLot).toBeCloseTo(12.7, 6);
+  });
+
+  it("marks non-FX broker point assumptions and unconverted FX crosses as estimates", () => {
+    const cross = calculateTrade({ symbol: sym("EURGBP"), balance: 1000, riskPercent: 1, entry: 0.85, stopLoss: 0.849, takeProfit: 0.852 });
+    const index = calculateTrade({ symbol: sym("US30"), balance: 1000, riskPercent: 1, entry: 40000, stopLoss: 39900, takeProfit: 40200 });
+    expect(cross.pipValueEstimated).toBe(true);
+    expect(index.pipValueEstimated).toBe(true);
   });
 
   it("USD/JPY lot size reflects the live rate", () => {

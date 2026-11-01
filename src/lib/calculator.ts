@@ -10,6 +10,8 @@ export interface CalcInput {
   entry: number;
   stopLoss: number;
   takeProfit: number;
+  /** USD value of one unit of the pair's quote currency, when it is not USD. */
+  quoteCurrencyToUsdRate?: number;
 }
 
 export interface CalcResult {
@@ -23,6 +25,8 @@ export interface CalcResult {
   actualLoss: number;         // loss at recommendedLot (should match risk)
   actualProfit: number;        // profit at recommendedLot
   rrRatio: number;             // tp / sl ratio
+  pipValuePerLot: number;      // pip/point value used in USD per catalog lot
+  pipValueEstimated: boolean; // true when a live FX conversion or broker spec is unavailable
   minLotOk: boolean;           // does recommendedLot >= symbol.minLot?
   minLotWarning?: {
     minLot: number;
@@ -36,16 +40,23 @@ export interface CalcResult {
 }
 
 /**
- * Effective pip value per 1 lot in USD.
- * For USD-base forex pairs (USD/JPY, USD/CHF, USD/CAD, USD/MXN ...) the pip value
- * depends on the current quote, so it is derived from the entry price:
- *   pipValue = pipSize * contractSize / price
- * Everything else uses the static value from the symbol spec.
+ * Effective pip value per catalog lot in USD. FX pip values are denominated
+ * in the pair's quote currency, so convert them using the live quote-to-USD
+ * rate. USD-base pairs can derive that conversion from their entry price.
  */
-export function effectivePipValue(symbol: SymbolSpec, entry: number): number {
-  const usdBase = symbol.assetClass === "forex" && symbol.id.startsWith("USD");
-  if (usdBase && entry > 0) {
-    return (symbol.pipSize * symbol.contractSize) / entry;
+export function effectivePipValue(
+  symbol: SymbolSpec,
+  entry: number,
+  quoteCurrencyToUsdRate?: number,
+): number {
+  if (symbol.assetClass === "forex") {
+    const quoteCurrency = symbol.id.slice(-3);
+    const conversion = quoteCurrency === "USD"
+      ? 1
+      : quoteCurrencyToUsdRate ?? (symbol.id.startsWith("USD") && entry > 0 ? 1 / entry : undefined);
+    if (conversion != null && Number.isFinite(conversion) && conversion > 0) {
+      return symbol.pipSize * symbol.contractSize * conversion;
+    }
   }
   return symbol.pipValuePerLot;
 }
@@ -86,6 +97,8 @@ export function calculateTrade(input: CalcInput): CalcResult {
       actualLoss: 0,
       actualProfit: 0,
       rrRatio: 0,
+      pipValuePerLot: 0,
+      pipValueEstimated: false,
       minLotOk: false,
       valid: false,
       errors,
@@ -117,13 +130,22 @@ export function calculateTrade(input: CalcInput): CalcResult {
       actualLoss: 0,
       actualProfit: 0,
       rrRatio: 0,
+      pipValuePerLot: 0,
+      pipValueEstimated: false,
       minLotOk: false,
       valid: false,
       errors,
     };
   }
 
-  const pipValue = effectivePipValue(symbol, entry);
+  const pipValue = effectivePipValue(symbol, entry, input.quoteCurrencyToUsdRate);
+  const quoteCurrency = symbol.id.slice(-3);
+  const hasLiveFxConversion = symbol.assetClass === "forex" && (
+    quoteCurrency === "USD" ||
+    (symbol.id.startsWith("USD") && entry > 0) ||
+    (input.quoteCurrencyToUsdRate != null && Number.isFinite(input.quoteCurrencyToUsdRate))
+  );
+  const pipValueEstimated = symbol.assetClass !== "forex" || !hasLiveFxConversion;
   const slPips = slDistance / symbol.pipSize;
   const tpPips = tpDistance / symbol.pipSize;
 
@@ -181,6 +203,8 @@ export function calculateTrade(input: CalcInput): CalcResult {
     actualLoss,
     actualProfit,
     rrRatio,
+    pipValuePerLot: pipValue,
+    pipValueEstimated,
     minLotOk,
     minLotWarning,
     valid: true,
