@@ -78,16 +78,24 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
       setCurrentSource("tv-scanner");
       setConnected(false);
       setIsLoading(false);
+      let requestInFlight = false;
+      let activeController: AbortController | null = null;
 
       const fetchPrice = async () => {
-        if (cancelled) return;
+        if (cancelled || requestInFlight) return;
+        requestInFlight = true;
+        const controller = new AbortController();
+        activeController = controller;
+        const timeout = setTimeout(() => controller.abort(), 8000);
         try {
           const url = `https://scanner.tradingview.com/symbol?symbol=${encodeURIComponent(
             source.tvScannerSymbol!
           )}&fields=close,change`;
-          const res = await fetch(url, { cache: "no-store" });
+          const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+          if (cancelled) return;
           if (!res.ok) throw new Error(`TV scanner HTTP ${res.status}`);
           const data = await res.json();
+          if (cancelled) return;
           if (typeof data.close !== "number" || data.close <= 0) {
             throw new Error("Invalid TV scanner response");
           }
@@ -103,9 +111,15 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
           setError(null);
           setIsLoading(false);
         } catch (err) {
-          setConnected(false);
-          setError(err instanceof Error ? err.message : "TradingView price fetch failed");
-          setIsLoading(false);
+          if (!cancelled) {
+            setConnected(false);
+            setError(err instanceof Error ? err.message : "TradingView price fetch failed");
+            setIsLoading(false);
+          }
+        } finally {
+          clearTimeout(timeout);
+          if (activeController === controller) activeController = null;
+          requestInFlight = false;
         }
       };
 
@@ -113,6 +127,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
       pollTimerRef.current = setInterval(fetchPrice, 3000);
       return () => {
         cancelled = true;
+        activeController?.abort();
         if (pollTimerRef.current) {
           clearInterval(pollTimerRef.current);
           pollTimerRef.current = null;
@@ -127,18 +142,27 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
       setCurrentSource("binance-rest");
       setConnected(false);
       setIsLoading(false);
+      let requestInFlight = false;
+      let activeController: AbortController | null = null;
 
       const fetchPrice = async () => {
-        if (cancelled) return;
+        if (cancelled || requestInFlight) return;
+        requestInFlight = true;
+        const controller = new AbortController();
+        activeController = controller;
+        const timeout = setTimeout(() => controller.abort(), 8000);
         try {
           const res = await fetch(
             `${BINANCE_API}?symbol=${source.binanceSymbol}`,
-            { cache: "no-store" }
+            { cache: "no-store", signal: controller.signal }
           );
+          if (cancelled) return;
           if (!res.ok) throw new Error(`Binance HTTP ${res.status}`);
           const data = await res.json();
+          if (cancelled) return;
           if (typeof data.price !== "string") throw new Error("Bad Binance response");
           const next = parseFloat(data.price);
+          if (!Number.isFinite(next) || next <= 0) throw new Error("Invalid Binance price response");
           const prev = latestPriceRef.current;
           setPrevPrice(prev);
           setPrice(next);
@@ -151,9 +175,15 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
           setIsLoading(false);
         } catch (err) {
           // Keep retrying on the poll interval; never invent a market price.
-          setConnected(false);
-          setError(err instanceof Error ? err.message : "Binance price fetch failed");
-          setIsLoading(false);
+          if (!cancelled) {
+            setConnected(false);
+            setError(err instanceof Error ? err.message : "Binance price fetch failed");
+            setIsLoading(false);
+          }
+        } finally {
+          clearTimeout(timeout);
+          if (activeController === controller) activeController = null;
+          requestInFlight = false;
         }
       };
 
@@ -161,6 +191,7 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
       pollTimerRef.current = setInterval(fetchPrice, 2500);
       return () => {
         cancelled = true;
+        activeController?.abort();
         if (pollTimerRef.current) {
           clearInterval(pollTimerRef.current);
           pollTimerRef.current = null;
@@ -239,9 +270,14 @@ export function useLivePrice(source: PriceSource | null): UseLivePriceResult {
           try {
             const data = JSON.parse(event.data);
             if (data.msg_type === "tick" && data.tick) {
+              const next = Number(data.tick.quote);
+              if (!Number.isFinite(next) || next <= 0) {
+                setError("Invalid Deriv price response");
+                setIsLoading(false);
+                return;
+              }
               if (firstTickTimeout) clearTimeout(firstTickTimeout);
               receivedTickOnSocket = true;
-              const next = data.tick.quote;
               const prev = latestPriceRef.current;
               setPrevPrice(prev);
               setPrice(next);

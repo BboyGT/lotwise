@@ -94,6 +94,28 @@ export function AlarmPanel({
     outcomeCallbackRef.current = onBackgroundTradeOutcome;
   }, [onBackgroundTradeOutcome]);
 
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const handlePushEvent = (message: MessageEvent) => {
+      const event = message.data?.type === "PUSH_EVENT" ? message.data.event : null;
+      if (!event || typeof event !== "object") return;
+      if (event.type === "alert" && typeof event.alertId === "string") {
+        manager.markAlertTriggered(event.alertId);
+      }
+      if ((event.type === "win" || event.type === "loss") && typeof event.tradeId === "string") {
+        outcomeCallbackRef.current({
+          tradeId: event.tradeId,
+          outcome: event.type,
+          realizedPnL: event.realizedPnL,
+          price: event.price,
+          timestamp: event.timestamp,
+        });
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handlePushEvent);
+    return () => navigator.serviceWorker.removeEventListener("message", handlePushEvent);
+  }, [manager.markAlertTriggered]);
+
   const syncBackgroundPush = useCallback(async () => {
     if (typeof window === "undefined" || !window.isSecureContext ||
         !("serviceWorker" in navigator) || typeof Notification === "undefined" ||

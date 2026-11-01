@@ -3,6 +3,7 @@ import {
   isAllowedPushEndpoint,
   isDeviceToken,
   marketKey,
+  pushFailureDisposition,
   validLevel,
   type BackgroundLevel,
 } from "../netlify/functions/_shared/push";
@@ -42,5 +43,13 @@ describe("background push validation", () => {
     expect(marketKey(baseAlert)).toBe("deriv:R_75");
     expect(marketKey({ binanceSymbol: "BTCUSDT" })).toBe("binance:BTCUSDT");
     expect(marketKey({ tvScannerSymbol: "FX:EURUSD" })).toBe("tv:FX:EURUSD");
+  });
+
+  it("retries transient push failures and only retires expired subscriptions", () => {
+    expect(pushFailureDisposition(404)).toBe("expired");
+    expect(pushFailureDisposition(410)).toBe("expired");
+    expect(pushFailureDisposition(429)).toBe("retry");
+    expect(pushFailureDisposition(503)).toBe("retry");
+    expect(pushFailureDisposition(undefined)).toBe("retry");
   });
 });

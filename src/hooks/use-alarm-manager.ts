@@ -99,6 +99,7 @@ export function useAlarmManager(
   // Refs for use inside callbacks without re-subscribing
   const settingsRef = useRef<AlarmSettings>(DEFAULT_SETTINGS);
   const firedTradeLevelsRef = useRef<Set<string>>(new Set());
+  const activeTradeLevelsKeyRef = useRef("");
   const previousPriceRef = useRef(new Map<string, number>());
   const lastWatchedSymbolRef = useRef(currentSymbolId);
   useEffect(() => {
@@ -217,6 +218,23 @@ export function useAlarmManager(
     },
     [currentSymbolLabel]
   );
+
+  const tradeLevelsKey = tradeLevels
+    ? `${tradeLevels.symbolId}:${tradeLevels.entry ?? ""}:${tradeLevels.stopLoss ?? ""}:${tradeLevels.takeProfit ?? ""}`
+    : "";
+
+  // Treat a changed calculator setup as a new set of alert levels. Without
+  // this reset, reusing a price level later in the same session stays muted.
+  useEffect(() => {
+    if (activeTradeLevelsKeyRef.current === tradeLevelsKey) return;
+    activeTradeLevelsKeyRef.current = tradeLevelsKey;
+    firedTradeLevelsRef.current.clear();
+    if (currentPriceIsLive && currentPrice != null && currentPrice > 0) {
+      previousPriceRef.current.set(currentSymbolId, currentPrice);
+    } else {
+      previousPriceRef.current.delete(currentSymbolId);
+    }
+  }, [tradeLevelsKey, currentSymbolId, currentPrice, currentPriceIsLive]);
 
   // ----- watch current price for trade level hits (entry/SL/TP) -----
   useEffect(() => {
