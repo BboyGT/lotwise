@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAlarmManager } from "@/hooks/use-alarm-manager";
 import { testSound, primeAudioContext } from "@/lib/sound-engine";
 import { formatPrice } from "@/lib/calculator";
+import { getSymbol } from "@/lib/symbols-v3";
 
 interface AlarmPanelProps {
   open: boolean;
@@ -20,6 +21,7 @@ interface AlarmPanelProps {
   currentSymbolLabel: string;
   currentSymbolAssetClass: string;
   currentPrice: number | null;
+  currentPriceIsLive: boolean;
   currentSymbolDecimals: number;
   tradeLevels: {
     symbolId: string;
@@ -27,8 +29,6 @@ interface AlarmPanelProps {
     stopLoss?: number;
     takeProfit?: number;
   } | null;
-  onOutcome?: (symbolId: string, outcome: "win" | "loss", price: number) => void;
-  currentDerivSymbol?: string;
 }
 
 export function AlarmPanel({
@@ -38,17 +38,16 @@ export function AlarmPanel({
   currentSymbolLabel,
   currentSymbolAssetClass,
   currentPrice,
+  currentPriceIsLive,
   currentSymbolDecimals,
   tradeLevels,
-  onOutcome,
-  currentDerivSymbol,
 }: AlarmPanelProps) {
   const manager = useAlarmManager(
     currentSymbolId,
     currentPrice,
+    currentPriceIsLive,
     currentSymbolLabel,
-    tradeLevels,
-    onOutcome
+    tradeLevels
   );
 
   const [newAlertPrice, setNewAlertPrice] = useState("");
@@ -61,32 +60,48 @@ export function AlarmPanel({
 
     // Sync alerts
     const activeAlerts = manager.alerts
-      .filter((a) => a.status === "active")
-      .map((a) => ({
-        id: a.id,
-        symbolLabel: a.symbolLabel,
-        targetPrice: a.price,
-        direction: a.direction,
-        type: a.type,
-        label: a.label,
-        derivSymbol: currentDerivSymbol,
-      }));
-    navigator.serviceWorker?.controller?.postMessage({
-      type: "SYNC_ALERTS",
-      alerts: activeAlerts,
-    });
+      .filter((a) => {
+        const feed = getSymbol(a.symbolId);
+        return a.status === "active" && (feed.binanceSymbol || feed.tvScannerSymbol);
+      })
+      .map((a) => {
+        const feed = getSymbol(a.symbolId);
+        return {
+          id: a.id,
+          symbolId: a.symbolId,
+          symbolLabel: a.symbolLabel,
+          targetPrice: a.price,
+          direction: a.direction,
+          type: a.type,
+          label: a.label,
+          binanceSymbol: feed.binanceSymbol,
+          tvScannerSymbol: feed.tvScannerSymbol,
+          derivSymbol: feed.derivSymbol,
+        };
+      });
 
     // Sync trades with SL/TP for background monitoring
     // The parent component needs to pass trade data — we use a global window property
     // set by the page when trades are saved
     const trades = (window as unknown as { __lotwiseTrades?: unknown[] }).__lotwiseTrades || [];
-    if (trades.length > 0) {
-      navigator.serviceWorker?.controller?.postMessage({
-        type: "SYNC_TRADES",
-        trades,
-      });
-    }
+    navigator.serviceWorker?.ready.then((registration) => registration.active?.postMessage({
+      type: "SYNC_TRADES",
+      trades,
+    })).catch(() => {});
+    navigator.serviceWorker?.ready.then((registration) => registration.active?.postMessage({
+      type: "SYNC_ALERTS",
+      alerts: activeAlerts,
+    })).catch(() => {});
   }, [manager.alerts]);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "ALERT_TRIGGERED") manager.markAlertTriggered(event.data.alertId);
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [manager.markAlertTriggered]);
 
   if (!open) return null;
 
@@ -138,10 +153,12 @@ export function AlarmPanel({
           ? `BTC/USD hit your take profit — position closed in profit`
           : `BTC/USD crossed your alert price`;
       try {
-        new Notification(`${icon} Lotwise — ${title}`, {
-          body,
-          tag: `preview-${type}-${Date.now()}`,
-        });
+        const options = { body, icon: "/icon-192.png", tag: `preview-${type}-${Date.now()}` };
+        if ("serviceWorker" in navigator) {
+          void navigator.serviceWorker.ready.then((registration) => registration.showNotification(`${icon} Lotwise: ${title}`, options)).catch(() => {});
+        } else {
+          new Notification(`${icon} Lotwise: ${title}`, options);
+        }
       } catch {
         // some browsers block notifications without interaction
       }

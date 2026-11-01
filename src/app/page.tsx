@@ -212,6 +212,7 @@ export default function Home() {
 
   // ----- PWA install prompt -----
   const pwa = usePWA();
+  const [installHelpOpen, setInstallHelpOpen] = useState(false);
 
   // Stable values for SSR/first-render — empty/default until hydrated to
   // avoid hydration mismatches when localStorage loads saved inputs.
@@ -342,7 +343,11 @@ export default function Home() {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
     // Only sync pending trades that have SL/TP
     const pendingTrades = trades
-      .filter((t) => (t.outcome === "pending" || !t.outcome) && t.stopLoss && t.takeProfit)
+      .filter((t) => {
+        const spec = getSymbol(t.symbolId);
+        return (t.outcome === "pending" || !t.outcome) && t.stopLoss && t.takeProfit &&
+          (spec.binanceSymbol || spec.tvScannerSymbol);
+      })
       .map((t) => ({
         id: t.id,
         symbolId: t.symbolId,
@@ -359,10 +364,9 @@ export default function Home() {
       }));
     // Store globally for alarm panel to pick up
     (window as unknown as { __lotwiseTrades?: typeof pendingTrades }).__lotwiseTrades = pendingTrades;
-    navigator.serviceWorker?.controller?.postMessage({
-      type: "SYNC_TRADES",
-      trades: pendingTrades,
-    });
+    void navigator.serviceWorker.ready.then((registration) => {
+      registration.active?.postMessage({ type: "SYNC_TRADES", trades: pendingTrades });
+    }).catch(() => {});
   }
 
   function updateTradeRecord(id: string, updates: Partial<TradeRecord>) {
@@ -386,6 +390,35 @@ export default function Home() {
     setHistory(next);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
     syncTradesToSW(next);
+  }
+
+  function applyBackgroundOutcomes(outcomes: Array<{
+    tradeId: string;
+    outcome: TradeRecord["outcome"];
+    realizedPnL?: number;
+    price?: number;
+    timestamp?: number;
+  }>) {
+    const byId = new Map(outcomes.map((outcome) => [outcome.tradeId, outcome]));
+    const next = history.map((trade) => {
+      const result = byId.get(trade.id);
+      if (!result || !result.outcome || result.outcome === "pending") return trade;
+      return {
+        ...trade,
+        outcome: result.outcome,
+        realizedPnL: Number.isFinite(result.realizedPnL)
+          ? result.realizedPnL
+          : result.outcome === "win" ? trade.actualProfit
+            : result.outcome === "loss" ? -trade.actualLoss : 0,
+        ...(Number.isFinite(result.price) ? { exitPrice: result.price } : {}),
+        closedAt: Number.isFinite(result.timestamp) ? result.timestamp : Date.now(),
+      };
+    });
+    if (next.some((trade, index) => trade !== history[index])) {
+      setHistory(next);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      syncTradesToSW(next);
+    }
   }
 
   // Auto-journal target/stop crossings while this symbol has a real live feed.
@@ -428,20 +461,15 @@ export default function Home() {
         });
       } else if (data.type === "PENDING_OUTCOMES") {
         if (data.outcomes && Array.isArray(data.outcomes)) {
-          for (const oc of data.outcomes) {
-            updateTradeRecord(oc.tradeId, {
-              outcome: oc.outcome,
-              ...(Number.isFinite(oc.realizedPnL) ? { realizedPnL: oc.realizedPnL } : {}),
-              ...(Number.isFinite(oc.price) ? { exitPrice: oc.price } : {}),
-              ...(Number.isFinite(oc.timestamp) ? { closedAt: oc.timestamp } : {}),
-            });
-          }
+          applyBackgroundOutcomes(data.outcomes);
         }
       }
     };
 
     navigator.serviceWorker.addEventListener("message", handleMessage);
-    navigator.serviceWorker?.controller?.postMessage({ type: "GET_PENDING_OUTCOMES" });
+    void navigator.serviceWorker.ready.then((registration) => {
+      registration.active?.postMessage({ type: "GET_PENDING_OUTCOMES" });
+    }).catch(() => {});
 
     return () => {
       navigator.serviceWorker.removeEventListener("message", handleMessage);
@@ -521,7 +549,10 @@ export default function Home() {
             {/* PWA install button */}
             {pwa.canInstall && !pwa.isInstalled && (
               <button
-                onClick={() => pwa.promptInstall()}
+                onClick={async () => {
+                  const installed = await pwa.promptInstall();
+                  if (installed === null) setInstallHelpOpen(true);
+                }}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 transition-colors"
                 title="Install app"
                 aria-label="Install app"
@@ -607,6 +638,24 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {installHelpOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-labelledby="install-help-title">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#0a0f1a] p-5 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 id="install-help-title" className="font-mono text-sm font-bold uppercase tracking-wider text-white">Install Lotwise</h2>
+              <button onClick={() => setInstallHelpOpen(false)} className="rounded px-2 py-1 text-slate-400 hover:text-white" aria-label="Close install instructions">×</button>
+            </div>
+            <p className="mb-3 text-xs leading-relaxed text-slate-400">Your browser can add Lotwise to your device from its install or share menu.</p>
+            <ul className="space-y-2 text-xs leading-relaxed text-slate-300">
+              <li><strong className="text-amber-300">Android:</strong> Chrome menu ⋮, then Install app or Add to Home screen.</li>
+              <li><strong className="text-amber-300">iPhone or iPad:</strong> Safari Share, then Add to Home Screen.</li>
+              <li><strong className="text-amber-300">Desktop:</strong> use the install icon in the browser address bar, or the browser menu’s Install Lotwise option.</li>
+            </ul>
+            <Button onClick={() => setInstallHelpOpen(false)} className="mt-5 w-full bg-amber-500 text-black hover:bg-amber-400">Got it</Button>
+          </div>
+        </div>
+      )}
 
       {/* ===== Main ===== */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
@@ -1552,9 +1601,9 @@ export default function Home() {
         currentSymbolLabel={symbol.label}
         currentSymbolAssetClass={symbol.assetClass}
         currentPrice={livePrice.price}
+        currentPriceIsLive={livePrice.connected && livePrice.source !== "simulator" && livePrice.source !== "none"}
         currentSymbolDecimals={symbol.decimals}
         tradeLevels={tradeLevelsForAlarm}
-        currentDerivSymbol={symbol.derivSymbol}
       />
     </div>
   );
