@@ -328,7 +328,9 @@ export const SYMBOLS: SymbolSpec[] = [
   // ============================================================
   // INDICES — US (4)
   // ============================================================
-  index("US30", "US30 (Dow Jones)", "TVC:US30", "DJ:DJI", "US Indices", 1, 1, 1, 0.1),
+  // TVC:US30 is the 30-year US Treasury yield. DJ:DJI is the Dow index and
+  // matches the live-price scanner symbol below.
+  index("US30", "US30 (Dow Jones)", "DJ:DJI", "DJ:DJI", "US Indices", 1, 1, 1, 0.1),
   index("NAS100", "NAS100 (Nasdaq 100)", "TVC:NAS100", "NASDAQ:NDX", "US Indices", 1, 1, 1, 0.1),
   index("SPX500", "S&P 500", "TVC:SPX", "SP:SPX", "US Indices", 1, 0.1, 2, 0.1),
   index("US2000", "Russell 2000", "TVC:RUT", "TVC:RUT", "US Indices", 1, 1, 1, 0.1,
