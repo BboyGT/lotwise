@@ -125,6 +125,7 @@ export default function Home() {
   const [assetClass, setAssetClass] = useState<AssetClass>("synthetic"); // start on synthetic to showcase live Deriv feed
   const [symbolId, setSymbolId] = useState<string>("VOL75");
   const [balance, setBalance] = useState<number>(100);
+  const [balanceInput, setBalanceInput] = useState("100");
   const [riskPercent, setRiskPercent] = useState<number>(10);
   const [entry, setEntry] = useState<string>("");
   const [stopLoss, setStopLoss] = useState<string>("");
@@ -142,6 +143,12 @@ export default function Home() {
   // ----- hydrated flag for localStorage load -----
   const [hydrated, setHydrated] = useState(false);
 
+  function updateBalance(value: number) {
+    const normalized = Number.isFinite(value) ? Math.max(0, value) : 0;
+    setBalance(normalized);
+    setBalanceInput(String(normalized));
+  }
+
   useEffect(() => {
     try {
       // Migrate from legacy keys if new keys don't exist
@@ -157,7 +164,7 @@ export default function Home() {
           const obj = JSON.parse(saved);
           if (obj && typeof obj === "object") {
             if (CURRENCIES.includes(obj.displayCurrency)) setDisplayCurrency(obj.displayCurrency);
-            if (Number.isFinite(obj.balance) && obj.balance >= 0) setBalance(obj.balance);
+            if (Number.isFinite(obj.balance) && obj.balance >= 0) updateBalance(obj.balance);
             if (Number.isFinite(obj.riskPercent) && obj.riskPercent >= 0 && obj.riskPercent <= 100) setRiskPercent(obj.riskPercent);
           }
         } catch {
@@ -516,7 +523,7 @@ export default function Home() {
   function replayTrade(rec: TradeRecord) {
     setAssetClass(rec.assetClass);
     setSymbolId(rec.symbolId);
-    setBalance(rec.balance);
+    updateBalance(rec.balance);
     setRiskPercent(rec.riskPercent);
     setEntry(String(rec.entry));
     setStopLoss(String(rec.stopLoss));
@@ -538,7 +545,7 @@ export default function Home() {
     historyRef.current = restoredHistory;
     setHistory(restoredHistory);
     setDisplayCurrency(restoredCurrency);
-    setBalance(data.settings.balance);
+    updateBalance(data.settings.balance);
     setRiskPercent(data.settings.riskPercent);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(restoredHistory));
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
@@ -890,7 +897,7 @@ export default function Home() {
                   {/* Minus stepper */}
                   <button
                     type="button"
-                    onClick={() => setBalance((b) => Math.max(0, b - 10))}
+                    onClick={() => updateBalance(balance - 10)}
                     className="rm-stepper shrink-0 w-9 rounded-md border border-white/10 bg-black/40 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 font-mono text-base flex items-center justify-center transition-colors"
                     aria-label="Decrease balance by 10"
                   >
@@ -900,18 +907,24 @@ export default function Home() {
                   <div className="relative flex-1">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-400 font-mono text-sm pointer-events-none">$</span>
                     <Input
-                      type="number"
-                      value={stableBalance}
-                      min={0}
-                      step={10}
-                      onChange={(e) => setBalance(parseFloat(e.target.value) || 0)}
+                      type="text"
+                      inputMode="decimal"
+                      value={balanceInput}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setBalanceInput(raw);
+                        const parsed = Number(raw);
+                        if (raw.trim() === "") setBalance(0);
+                        else if (Number.isFinite(parsed) && parsed >= 0) setBalance(parsed);
+                      }}
+                      onBlur={() => updateBalance(Number(balanceInput))}
                       className="pl-7 bg-black/40 border-white/10 text-white font-mono tabular-nums text-lg focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20 h-10"
                     />
                   </div>
                   {/* Plus stepper */}
                   <button
                     type="button"
-                    onClick={() => setBalance((b) => b + 10)}
+                    onClick={() => updateBalance(balance + 10)}
                     className="rm-stepper shrink-0 w-9 rounded-md border border-white/10 bg-black/40 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 font-mono text-base flex items-center justify-center transition-colors"
                     aria-label="Increase balance by 10"
                   >
@@ -929,7 +942,7 @@ export default function Home() {
                     <button
                       key={preset.value}
                       type="button"
-                      onClick={() => setBalance(preset.value)}
+                      onClick={() => updateBalance(preset.value)}
                       className={`h-6 rounded text-[10px] font-mono uppercase tracking-wider transition-colors ${
                         stableBalance === preset.value
                           ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
