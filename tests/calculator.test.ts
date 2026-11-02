@@ -129,6 +129,40 @@ describe("USD-base pip value", () => {
     expect(result.pipValuePerLot).toBeCloseTo(12.7, 6);
   });
 
+  it("converts the forex catalog's EUR and exotic quote currencies from USD-based rates", () => {
+    const cases = [
+      { pair: "EURCHF", pipSize: 0.0001, rate: 0.88, direction: "direct" as const },
+      { pair: "EURNZD", pipSize: 0.0001, rate: 1.65, direction: "direct" as const },
+      { pair: "USDJPY", pipSize: 0.01, rate: 150, direction: "inverse" as const },
+      { pair: "USDCHF", pipSize: 0.0001, rate: 0.9, direction: "inverse" as const },
+      { pair: "USDCAD", pipSize: 0.0001, rate: 1.35, direction: "inverse" as const },
+      { pair: "USDMXN", pipSize: 0.0001, rate: 17, direction: "inverse" as const },
+      { pair: "USDZAR", pipSize: 0.0001, rate: 18, direction: "inverse" as const },
+      { pair: "USDTRY", pipSize: 0.0001, rate: 32, direction: "inverse" as const },
+      { pair: "USDSGD", pipSize: 0.0001, rate: 1.35, direction: "inverse" as const },
+      { pair: "USDHKD", pipSize: 0.0001, rate: 7.8, direction: "inverse" as const },
+      { pair: "USDSEK", pipSize: 0.0001, rate: 10.5, direction: "inverse" as const },
+      { pair: "USDNOK", pipSize: 0.0001, rate: 10.5, direction: "inverse" as const },
+      { pair: "USDDKK", pipSize: 0.0001, rate: 6.9, direction: "inverse" as const },
+    ];
+
+    for (const item of cases) {
+      const pair = sym(item.pair);
+      const quoteToUsd = item.direction === "direct" ? item.rate : 1 / item.rate;
+      expect(effectivePipValue(pair, 1, quoteToUsd)).toBeCloseTo(item.pipSize * pair.contractSize * quoteToUsd, 8);
+      const result = calculateTrade({
+        symbol: pair,
+        balance: 1000,
+        riskPercent: 1,
+        entry: item.pair === "USDJPY" ? item.rate : 1,
+        stopLoss: item.pair === "USDJPY" ? item.rate - 0.01 : 0.999,
+        takeProfit: item.pair === "USDJPY" ? item.rate + 0.02 : 1.002,
+        quoteCurrencyToUsdRate: quoteToUsd,
+      });
+      expect(result.pipValueEstimated, item.pair).toBe(false);
+    }
+  });
+
   it("marks non-FX broker point assumptions and unconverted FX crosses as estimates", () => {
     const cross = calculateTrade({ symbol: sym("EURGBP"), balance: 1000, riskPercent: 1, entry: 0.85, stopLoss: 0.849, takeProfit: 0.852 });
     const index = calculateTrade({ symbol: sym("US30"), balance: 1000, riskPercent: 1, entry: 40000, stopLoss: 39900, takeProfit: 40200 });

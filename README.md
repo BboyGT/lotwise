@@ -68,7 +68,7 @@
 ### 📊 Position Calculator
 - **160 trading symbols** across 4 asset classes: 35 forex, 46 synthetic indices currently listed by Deriv's public market feed, 16 real indices, and 63 crypto symbols
 - **Exact lot size** auto-calculated from your risk percentage and SL distance
-- **Forex pip values** converted to USD from the live quote-currency rate for cross pairs; without that conversion the calculator labels the value as estimated
+- **Forex pip values** converted to USD from live quote-currency rates for every catalog currency; without that conversion the calculator labels the value as estimated
 - **Minimum-size validation**: warns when calculated lot is below the catalog baseline and shows the adjusted scenario; confirm broker minimums and volume steps
 - **Risk-to-reward visualizer**: color-coded bar showing SL zone (red), entry marker (gold), TP zone (green)
 - **0.5%–100% risk slider** with quick presets (1%, 2%, 5%, 10%, 25%, 50%, 100%)
@@ -146,7 +146,7 @@
 
 ### Current limitations
 
-- Forex pip-value conversion quotes are configured for GBP, AUD, NZD, JPY, CHF, and CAD. Calculations that lack a live conversion use the catalog estimate and are marked as estimated.
+- Forex pip-value conversion uses a live direct or inverse USD quote for every quote currency in the catalog. If that conversion feed is unavailable, Lotwise falls back to its catalog estimate and marks the result as estimated.
 - Journal entries, alerts, and app settings are stored on the device by default. The Alerts panel's **Data** tab can export/import a password-encrypted backup file, or optionally save/restore an encrypted snapshot through a Netlify sync vault without an account. Vault updates are manual and replace the previous snapshot. The recovery key is required; if it is lost, the vault cannot be decrypted. Keep a separate copy of the key and continue to keep offline backup files.
 - The repository does not contain a built APK. Lotwise can be installed as a PWA; `scripts/build-apk.sh` documents the manual PWABuilder or Bubblewrap packaging steps.
 - Offline caching covers the app shell only. Live market quotes, chart updates, and price-triggered alerts need an internet connection.
@@ -258,7 +258,7 @@ npm run typecheck     # TypeScript type checking
 npm test              # Calculator unit tests (Vitest)
 ```
 
-The calculator is a pure function (`src/lib/calculator.ts`) and is covered by unit tests in `tests/`. Forex pip values convert quote currencies to USD with live FX quotes where available; values show as estimates when the conversion feed is unavailable.
+The calculator is a pure function (`src/lib/calculator.ts`) and is covered by unit tests in `tests/`. Forex pip values convert quote currencies to USD with direct or inverse live FX quotes for every quote currency in the catalog; values show as estimates when the conversion feed is unavailable.
 
 ## Continuous integration and releases
 

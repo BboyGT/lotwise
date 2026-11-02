@@ -82,12 +82,21 @@ import type { LotwiseBackup } from "@/lib/private-backup";
 const CURRENCIES = ["USD", "EUR", "GBP", "NGN", "JPY"] as const;
 type CurrencyCode = (typeof CURRENCIES)[number];
 const QUOTE_CURRENCY_USD_FEEDS: Record<string, { symbol: string; direction: "direct" | "inverse" }> = {
+  EUR: { symbol: "FX:EURUSD", direction: "direct" },
   GBP: { symbol: "FX:GBPUSD", direction: "direct" },
   AUD: { symbol: "FX:AUDUSD", direction: "direct" },
   NZD: { symbol: "FX:NZDUSD", direction: "direct" },
   JPY: { symbol: "FX:USDJPY", direction: "inverse" },
   CHF: { symbol: "FX:USDCHF", direction: "inverse" },
   CAD: { symbol: "FX:USDCAD", direction: "inverse" },
+  MXN: { symbol: "FX:USDMXN", direction: "inverse" },
+  ZAR: { symbol: "FX:USDZAR", direction: "inverse" },
+  TRY: { symbol: "FX:USDTRY", direction: "inverse" },
+  SGD: { symbol: "OANDA:USDSGD", direction: "inverse" },
+  HKD: { symbol: "FX:USDHKD", direction: "inverse" },
+  SEK: { symbol: "FX:USDSEK", direction: "inverse" },
+  NOK: { symbol: "FX:USDNOK", direction: "inverse" },
+  DKK: { symbol: "FX:USDDKK", direction: "inverse" },
 };
 
 interface TradeRecord {
