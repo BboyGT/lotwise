@@ -9,7 +9,7 @@ export interface CalcInput {
   riskPercent: number;   // % of balance willing to lose
   entry: number;
   stopLoss: number;
-  takeProfit: number;
+  takeProfit?: number;
   /** USD value of one unit of the pair's quote currency, when it is not USD. */
   quoteCurrencyToUsdRate?: number;
 }
@@ -63,14 +63,13 @@ export function effectivePipValue(
 
 export function calculateTrade(input: CalcInput): CalcResult {
   const errors: string[] = [];
-  const { symbol, balance, riskPercent, entry, stopLoss, takeProfit } = input;
+  const { symbol, balance, riskPercent, entry, stopLoss, takeProfit = 0 } = input;
 
   if (!(balance > 0)) errors.push("Account balance must be greater than 0");
   if (!(riskPercent > 0 && riskPercent <= 100))
     errors.push("Risk % must be between 0 and 100");
   if (!(entry > 0)) errors.push("Entry price must be greater than 0");
   if (!(stopLoss > 0)) errors.push("Stop loss must be greater than 0");
-  if (!(takeProfit > 0)) errors.push("Take profit must be greater than 0");
 
   if (
     entry > 0 &&
@@ -108,13 +107,13 @@ export function calculateTrade(input: CalcInput): CalcResult {
   // Direction: long if SL below entry, short if above
   const isLong = stopLoss < entry;
   const slDistance = Math.abs(entry - stopLoss);
-  const tpDistance = Math.abs(entry - takeProfit);
+  const tpDistance = takeProfit > 0 ? Math.abs(entry - takeProfit) : 0;
 
   // Direction sanity check (TP must be on the correct side)
-  if (isLong && takeProfit <= entry) {
+  if (takeProfit > 0 && isLong && takeProfit <= entry) {
     errors.push("For a long (SL below entry), TP must be above entry");
   }
-  if (!isLong && takeProfit >= entry) {
+  if (takeProfit > 0 && !isLong && takeProfit >= entry) {
     errors.push("For a short (SL above entry), TP must be below entry");
   }
 
