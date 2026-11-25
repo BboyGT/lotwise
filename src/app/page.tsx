@@ -12,6 +12,7 @@ import {
 } from "@/lib/symbols-v3";
 import {
   calculateTrade,
+  effectivePipValue,
   currencySymbol,
   formatLot,
   formatMoney,
@@ -364,20 +365,34 @@ export default function Home() {
     setEntry(derivTicks.price!.toFixed(symbol.decimals));
   }
 
-  // Quick-fill SL and TP based on entry + suggested distances
+  // Quick-fill a long setup whose stop fits the risk budget at the catalog minimum lot.
   function quickFillDistances() {
     const e = parseFloat(entry);
     if (!(e > 0)) {
       alert("Enter an entry price first.");
       return;
     }
-    // Suggest 1% SL distance, 3% TP distance (1:3 R:R) as starting point
-    const slDist = e * 0.01;
-    const tpDist = e * 0.03;
+
+    const pipValue = effectivePipValue(symbol, e, quoteCurrencyToUsdRate);
+    const riskAmount = (balance * riskPercent) / 100;
+    const maxStopDistance =
+      (riskAmount / (symbol.minLot * pipValue)) * symbol.pipSize;
+    const priceStep = 10 ** -symbol.decimals;
+    // Round down so price precision does not make the planned risk exceed budget.
+    const riskBasedDistance = Math.max(
+      priceStep,
+      Math.floor(maxStopDistance / priceStep) * priceStep,
+    );
+    const largestValidDistance = Math.max(
+      priceStep,
+      Math.floor((e - priceStep) / priceStep) * priceStep,
+    );
+    const slDist = Math.min(riskBasedDistance, largestValidDistance);
+    const tpDist = slDist * 3;
+
     setStopLoss((e - slDist).toFixed(symbol.decimals));
     setTakeProfit((e + tpDist).toFixed(symbol.decimals));
   }
-
   function saveTrade(): boolean {
     if (!calc.valid) return false;
     const record: TradeRecord = {
