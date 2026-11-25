@@ -38,6 +38,26 @@ describe("calculateTrade validation", () => {
   });
 });
 
+describe("calculateTrade without take profit", () => {
+  it("calculates lot size from balance, risk, entry, and stop loss alone", () => {
+    const r = calculateTrade({
+      symbol: sym("EURUSD"),
+      balance: 100,
+      riskPercent: 10,
+      entry: 1.1,
+      stopLoss: 1.095,
+    });
+
+    expect(r.valid).toBe(true);
+    expect(r.riskAmount).toBeCloseTo(10, 6);
+    expect(r.slPips).toBeCloseTo(50, 6);
+    expect(r.recommendedLot).toBeCloseTo(0.02, 6);
+    expect(r.actualLoss).toBeCloseTo(10, 6);
+    expect(r.tpDistance).toBe(0);
+    expect(r.actualProfit).toBe(0);
+    expect(r.rrRatio).toBe(0);
+  });
+});
 describe("calculateTrade sizing", () => {
   it("EUR/USD: $1000, 1% risk, 50 pip stop => 0.02 lot, $10 pip value", () => {
     const r = calculateTrade({ symbol: sym("EURUSD"), balance: 1000, riskPercent: 1, entry: 1.1, stopLoss: 1.095, takeProfit: 1.11 });

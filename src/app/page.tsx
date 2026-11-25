@@ -407,7 +407,7 @@ export default function Home() {
       riskPercent,
       entry: parseFloat(entry),
       stopLoss: parseFloat(stopLoss),
-      takeProfit: parseFloat(takeProfit),
+      takeProfit: parseFloat(takeProfit) || 0,
       recommendedLot: calc.recommendedLot,
       actualLoss: calc.actualLoss,
       actualProfit: calc.actualProfit,
@@ -553,7 +553,7 @@ export default function Home() {
     setRiskPercent(rec.riskPercent);
     setEntry(String(rec.entry));
     setStopLoss(String(rec.stopLoss));
-    setTakeProfit(String(rec.takeProfit));
+    setTakeProfit(rec.takeProfit > 0 ? String(rec.takeProfit) : "");
     setHistoryOpen(false);
   }
 
@@ -585,7 +585,7 @@ export default function Home() {
   // The bar runs from SL to TP. Entry sits between them.
   // We compute percentages of the full SL→TP distance.
   const rrBar = useMemo(() => {
-    if (!calc.valid) return null;
+    if (!calc.valid || !(parseFloat(stableTakeProfit) > 0)) return null;
     const sl = parseFloat(stableStopLoss);
     const tp = parseFloat(stableTakeProfit);
     const e = parseFloat(stableEntry);
@@ -1124,7 +1124,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-mono uppercase tracking-wider text-emerald-400/70">
-                    Take Profit
+                    Take Profit (Optional)
                   </Label>
                   <Input
                     type="number"
@@ -1176,9 +1176,7 @@ export default function Home() {
                 </AlertTitle>
                 <AlertDescription className="space-y-2">
                   <p className="text-xs font-mono text-slate-400">
-                    Fill in Entry, Stop Loss, and Take Profit to calculate your
-                    position size, risk, and reward. The journal note + save
-                    button appear here once the calc is valid.
+                    Fill in Entry and Stop Loss to calculate your position size and risk. Take Profit is optional and adds reward estimates.
                   </p>
                   {calc.errors.length > 0 && (
                     <ul className="list-disc ml-4 text-xs font-mono space-y-0.5 text-slate-400">
@@ -1298,13 +1296,13 @@ export default function Home() {
                   />
                   <StatTile
                     label="Win"
-                    value={<AnimatedNumber value={conv(calc.actualProfit)} duration={400} format={(n) => formatMoney(n, displayCurrency)} />}
+                    value={parseFloat(stableTakeProfit) > 0 ? <AnimatedNumber value={conv(calc.actualProfit)} duration={400} format={(n) => formatMoney(n, displayCurrency)} /> : "—"}
                     color="emerald"
                     icon={<TrendingUp className="h-3 w-3" />}
                   />
                   <StatTile
                     label="R : R"
-                    value={`1:${calc.rrRatio.toFixed(2)}`}
+                    value={parseFloat(stableTakeProfit) > 0 ? `1:${calc.rrRatio.toFixed(2)}` : "—"}
                     color="cyan"
                     icon={<Target className="h-3 w-3" />}
                   />
@@ -1321,7 +1319,7 @@ export default function Home() {
                   <div className="flex justify-between pl-3 border-l border-white/5">
                     <span className="text-slate-500 uppercase tracking-wider text-[10px]">TP dist</span>
                     <span className="text-emerald-300 tabular-nums">
-                      {formatPrice(calc.tpDistance, symbol.decimals)} <span className="text-slate-600">({calc.tpPips.toFixed(1)} {unitLabel})</span>
+                      {parseFloat(stableTakeProfit) > 0 ? <>{formatPrice(calc.tpDistance, symbol.decimals)} <span className="text-slate-600">({calc.tpPips.toFixed(1)} {unitLabel})</span></> : "—"}
                     </span>
                   </div>
                   <div className="flex justify-between pr-3">
@@ -1381,7 +1379,7 @@ export default function Home() {
                             Win at min lot
                           </span>
                           <span className="text-emerald-300 font-bold tabular-nums text-right">
-                            {formatMoney(conv(calc.minLotWarning.profitAtMinLot), displayCurrency)}
+                            {parseFloat(stableTakeProfit) > 0 ? formatMoney(conv(calc.minLotWarning.profitAtMinLot), displayCurrency) : "—"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-3 border-t border-white/5 pt-2">
@@ -1491,7 +1489,7 @@ export default function Home() {
                       No saved trades yet
                     </p>
                     <p className="text-[10px] font-mono text-slate-700 text-center leading-relaxed">
-                      Fill in Entry, Stop Loss, and Take Profit above.<br/>
+                      Fill in Entry and Stop Loss above; Take Profit is optional.<br/>
                       Add an optional journal note, then click<br/>
                       <span className="text-amber-500">Save to History</span> to track trades<br/>
                       and see your equity curve here.
@@ -1567,9 +1565,9 @@ export default function Home() {
                             {new Date(rec.timestamp).toLocaleString()}
                           </div>
                           <div className="text-[10px] text-slate-500 mb-2 flex gap-3 flex-wrap">
-                            <span>R:R 1:{rec.rrRatio.toFixed(2)}</span>
+                            <span>R:R {rec.takeProfit > 0 ? `1:${rec.rrRatio.toFixed(2)}` : "—"}</span>
                             <span className="text-rose-300">L: {formatMoney(rec.actualLoss, "USD")}</span>
-                            <span className="text-emerald-300">W: {formatMoney(rec.actualProfit, "USD")}</span>
+                            <span className="text-emerald-300">W: {rec.takeProfit > 0 ? formatMoney(rec.actualProfit, "USD") : "—"}</span>
                           </div>
 
                           {/* Outcome selector */}
